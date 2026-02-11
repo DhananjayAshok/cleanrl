@@ -27,7 +27,7 @@ dependencies = [
 
 [project.optional-dependencies]
 atari = [
-    "ale-py==0.8.1",
+    "ale-py",
     "AutoROM[accept-rom-license]~=0.4.2",
     "opencv-python>=4.6.0.66,<5",
     "shimmy>=1.1.0",
