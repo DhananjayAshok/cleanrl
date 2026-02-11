@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import List, Literal
 
 import gymnasium as gym
+import ale_py
 import numpy as np
 import torch
 import torch.distributed as dist

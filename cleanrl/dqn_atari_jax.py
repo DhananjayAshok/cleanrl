@@ -10,6 +10,7 @@ os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"] = "0.7"
 import flax
 import flax.linen as nn
 import gymnasium as gym
+import ale_py
 import jax
 import jax.numpy as jnp
 import numpy as np

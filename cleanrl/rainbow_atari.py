@@ -8,6 +8,7 @@ from collections import deque
 from dataclasses import dataclass
 
 import gymnasium as gym
+import ale_py
 import numpy as np
 import torch
 import torch.nn as nn
