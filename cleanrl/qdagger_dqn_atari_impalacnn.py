@@ -126,8 +126,12 @@ def make_env(env_id, seed, idx, capture_video, run_name):
 class ResidualBlock(nn.Module):
     def __init__(self, channels):
         super().__init__()
-        self.conv0 = nn.Conv2d(in_channels=channels, out_channels=channels, kernel_size=3, padding=1)
-        self.conv1 = nn.Conv2d(in_channels=channels, out_channels=channels, kernel_size=3, padding=1)
+        self.conv0 = nn.Conv2d(
+            in_channels=channels, out_channels=channels, kernel_size=3, padding=1
+        )
+        self.conv1 = nn.Conv2d(
+            in_channels=channels, out_channels=channels, kernel_size=3, padding=1
+        )
 
     def forward(self, x):
         inputs = x
@@ -143,7 +147,12 @@ class ConvSequence(nn.Module):
         super().__init__()
         self._input_shape = input_shape
         self._out_channels = out_channels
-        self.conv = nn.Conv2d(in_channels=self._input_shape[0], out_channels=self._out_channels, kernel_size=3, padding=1)
+        self.conv = nn.Conv2d(
+            in_channels=self._input_shape[0],
+            out_channels=self._out_channels,
+            kernel_size=3,
+            padding=1,
+        )
         self.res_block0 = ResidualBlock(self._out_channels)
         self.res_block1 = ResidualBlock(self._out_channels)
 
@@ -191,7 +200,9 @@ def linear_schedule(start_e: float, end_e: float, duration: int, t: int):
 
 def kl_divergence_with_logits(target_logits, prediction_logits):
     """Implementation of on-policy distillation loss."""
-    out = -F.softmax(target_logits, dim=-1) * (F.log_softmax(prediction_logits, dim=-1) - F.log_softmax(target_logits, dim=-1))
+    out = -F.softmax(target_logits, dim=-1) * (
+        F.log_softmax(prediction_logits, dim=-1) - F.log_softmax(target_logits, dim=-1)
+    )
     return torch.sum(out)
 
 
@@ -199,7 +210,9 @@ if __name__ == "__main__":
     args = tyro.cli(Args)
     assert args.num_envs == 1, "vectorized envs are not supported at the moment"
     if args.teacher_policy_hf_repo is None:
-        args.teacher_policy_hf_repo = f"cleanrl/{args.env_id}-{args.teacher_model_exp_name}-seed1"
+        args.teacher_policy_hf_repo = (
+            f"cleanrl/{args.env_id}-{args.teacher_model_exp_name}-seed1"
+        )
     run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
     if args.track:
         import wandb
@@ -210,13 +223,14 @@ if __name__ == "__main__":
             sync_tensorboard=True,
             config=vars(args),
             name=run_name,
-            monitor_gym=True,
+            monitor_gym=False,
             save_code=True,
         )
     writer = SummaryWriter(f"runs/{run_name}")
     writer.add_text(
         "hyperparameters",
-        "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
+        "|param|value|\n|-|-|\n%s"
+        % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
     )
 
     # TRY NOT TO MODIFY: seeding
@@ -229,9 +243,15 @@ if __name__ == "__main__":
 
     # env setup
     envs = gym.vector.SyncVectorEnv(
-        [make_env(args.env_id, args.seed + i, i, args.capture_video, run_name) for i in range(args.num_envs)]
+        [
+            make_env(args.env_id, args.seed + i, i, args.capture_video, run_name)
+            for i in range(args.num_envs)
+        ],
+        autoreset_mode=gym.vector.AutoresetMode.SAME_STEP,
     )
-    assert isinstance(envs.single_action_space, gym.spaces.Discrete), "only discrete action space is supported"
+    assert isinstance(
+        envs.single_action_space, gym.spaces.Discrete
+    ), "only discrete action space is supported"
 
     q_network = QNetwork(envs).to(device)
     optimizer = optim.Adam(q_network.parameters(), lr=args.learning_rate)
@@ -240,7 +260,8 @@ if __name__ == "__main__":
 
     # QDAGGER LOGIC:
     teacher_model_path = hf_hub_download(
-        repo_id=args.teacher_policy_hf_repo, filename=f"{args.teacher_model_exp_name}.cleanrl_model"
+        repo_id=args.teacher_policy_hf_repo,
+        filename=f"{args.teacher_model_exp_name}.cleanrl_model",
     )
     teacher_model = TeacherModel(envs).to(device)
     teacher_model.load_state_dict(torch.load(teacher_model_path, map_location=device))
@@ -257,7 +278,9 @@ if __name__ == "__main__":
         epsilon=args.end_e,
         capture_video=False,
     )
-    writer.add_scalar("charts/teacher/avg_episodic_return", np.mean(teacher_episodic_returns), 0)
+    writer.add_scalar(
+        "charts/teacher/avg_episodic_return", np.mean(teacher_episodic_returns), 0
+    )
 
     # collect teacher data for args.teacher_steps
     # we assume we don't have access to the teacher's replay buffer
@@ -272,10 +295,16 @@ if __name__ == "__main__":
     )
 
     obs, _ = envs.reset(seed=args.seed)
-    for global_step in track(range(args.teacher_steps), description="filling teacher's replay buffer"):
-        epsilon = linear_schedule(args.start_e, args.end_e, args.teacher_steps, global_step)
+    for global_step in track(
+        range(args.teacher_steps), description="filling teacher's replay buffer"
+    ):
+        epsilon = linear_schedule(
+            args.start_e, args.end_e, args.teacher_steps, global_step
+        )
         if random.random() < epsilon:
-            actions = np.array([envs.single_action_space.sample() for _ in range(envs.num_envs)])
+            actions = np.array(
+                [envs.single_action_space.sample() for _ in range(envs.num_envs)]
+            )
         else:
             q_values = teacher_model(torch.Tensor(obs).to(device))
             actions = torch.argmax(q_values, dim=1).cpu().numpy()
@@ -283,17 +312,21 @@ if __name__ == "__main__":
         real_next_obs = next_obs.copy()
         for idx, trunc in enumerate(truncations):
             if trunc:
-                real_next_obs[idx] = infos["final_observation"][idx]
+                real_next_obs[idx] = infos["final_obs"][idx]
         teacher_rb.add(obs, real_next_obs, actions, rewards, terminations, infos)
         obs = next_obs
 
     # offline training phase: train the student model using the qdagger loss
-    for global_step in track(range(args.offline_steps), description="offline student training"):
+    for global_step in track(
+        range(args.offline_steps), description="offline student training"
+    ):
         data = teacher_rb.sample(args.batch_size)
         # perform a gradient-descent step
         with torch.no_grad():
             target_max, _ = target_network(data.next_observations).max(dim=1)
-            td_target = data.rewards.flatten() + args.gamma * target_max * (1 - data.dones.flatten())
+            td_target = data.rewards.flatten() + args.gamma * target_max * (
+                1 - data.dones.flatten()
+            )
             teacher_q_values = teacher_model(data.observations) / args.temperature
 
         student_q_values = q_network(data.observations)
@@ -301,7 +334,9 @@ if __name__ == "__main__":
         q_loss = F.mse_loss(td_target, old_val)
 
         student_q_values = student_q_values / args.temperature
-        distill_loss = torch.mean(kl_divergence_with_logits(teacher_q_values, student_q_values))
+        distill_loss = torch.mean(
+            kl_divergence_with_logits(teacher_q_values, student_q_values)
+        )
 
         loss = q_loss + 1.0 * distill_loss
 
@@ -311,8 +346,13 @@ if __name__ == "__main__":
 
         # update the target network
         if global_step % args.target_network_frequency == 0:
-            for target_network_param, q_network_param in zip(target_network.parameters(), q_network.parameters()):
-                target_network_param.data.copy_(args.tau * q_network_param.data + (1.0 - args.tau) * target_network_param.data)
+            for target_network_param, q_network_param in zip(
+                target_network.parameters(), q_network.parameters()
+            ):
+                target_network_param.data.copy_(
+                    args.tau * q_network_param.data
+                    + (1.0 - args.tau) * target_network_param.data
+                )
 
         if global_step % 100 == 0:
             writer.add_scalar("charts/offline/loss", loss, global_step)
@@ -321,7 +361,9 @@ if __name__ == "__main__":
 
         if global_step % 100000 == 0:
             # evaluate the student model
-            model_path = f"runs/{run_name}/{args.exp_name}-offline-{global_step}.cleanrl_model"
+            model_path = (
+                f"runs/{run_name}/{args.exp_name}-offline-{global_step}.cleanrl_model"
+            )
             torch.save(q_network.state_dict(), model_path)
             print(f"model saved to {model_path}")
 
@@ -336,7 +378,11 @@ if __name__ == "__main__":
                 epsilon=args.end_e,
             )
             print(episodic_returns)
-            writer.add_scalar("charts/offline/avg_episodic_return", np.mean(episodic_returns), global_step)
+            writer.add_scalar(
+                "charts/offline/avg_episodic_return",
+                np.mean(episodic_returns),
+                global_step,
+            )
 
     rb = ReplayBuffer(
         args.buffer_size,
@@ -350,17 +396,30 @@ if __name__ == "__main__":
 
     # TRY NOT TO MODIFY: start the game
     envs = gym.vector.SyncVectorEnv(
-        [make_env(args.env_id, args.seed + i, i, args.capture_video, run_name) for i in range(args.num_envs)]
+        [
+            make_env(args.env_id, args.seed + i, i, args.capture_video, run_name)
+            for i in range(args.num_envs)
+        ],
+        autoreset_mode=gym.vector.AutoresetMode.SAME_STEP,
     )
     obs, _ = envs.reset(seed=args.seed)
     episodic_returns = deque(maxlen=10)
     # online training phase
-    for global_step in track(range(args.total_timesteps), description="online student training"):
+    for global_step in track(
+        range(args.total_timesteps), description="online student training"
+    ):
         global_step += args.offline_steps
         # ALGO LOGIC: put action logic here
-        epsilon = linear_schedule(args.start_e, args.end_e, args.exploration_fraction * args.total_timesteps, global_step)
+        epsilon = linear_schedule(
+            args.start_e,
+            args.end_e,
+            args.exploration_fraction * args.total_timesteps,
+            global_step,
+        )
         if random.random() < epsilon:
-            actions = np.array([envs.single_action_space.sample() for _ in range(envs.num_envs)])
+            actions = np.array(
+                [envs.single_action_space.sample() for _ in range(envs.num_envs)]
+            )
         else:
             q_values = q_network(torch.Tensor(obs).to(device))
             actions = torch.argmax(q_values, dim=1).cpu().numpy()
@@ -370,13 +429,21 @@ if __name__ == "__main__":
 
         # TRY NOT TO MODIFY: record rewards for plotting purposes
         if "final_info" in infos:
+            if isinstance(infos["final_info"], dict):
+                infos["final_info"] = [infos["final_info"]]
             for info in infos["final_info"]:
                 # Skip the envs that are not done
                 if "episode" not in info:
                     continue
-                print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
-                writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
-                writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
+                print(
+                    f"global_step={global_step}, episodic_return={info['episode']['r']}"
+                )
+                writer.add_scalar(
+                    "charts/episodic_return", info["episode"]["r"], global_step
+                )
+                writer.add_scalar(
+                    "charts/episodic_length", info["episode"]["l"], global_step
+                )
                 writer.add_scalar("charts/epsilon", epsilon, global_step)
                 episodic_returns.append(info["episode"]["r"])
                 break
@@ -385,7 +452,7 @@ if __name__ == "__main__":
         real_next_obs = next_obs.copy()
         for idx, trunc in enumerate(truncations):
             if trunc:
-                real_next_obs[idx] = infos["final_observation"][idx]
+                real_next_obs[idx] = infos["final_obs"][idx]
         rb.add(obs, real_next_obs, actions, rewards, terminations, infos)
 
         # TRY NOT TO MODIFY: CRUCIAL step easy to overlook
@@ -399,18 +466,28 @@ if __name__ == "__main__":
                 if len(episodic_returns) < 10:
                     distill_coeff = 1.0
                 else:
-                    distill_coeff = max(1 - np.mean(episodic_returns) / np.mean(teacher_episodic_returns), 0)
+                    distill_coeff = max(
+                        1
+                        - np.mean(episodic_returns) / np.mean(teacher_episodic_returns),
+                        0,
+                    )
                 with torch.no_grad():
                     target_max, _ = target_network(data.next_observations).max(dim=1)
-                    td_target = data.rewards.flatten() + args.gamma * target_max * (1 - data.dones.flatten())
-                    teacher_q_values = teacher_model(data.observations) / args.temperature
+                    td_target = data.rewards.flatten() + args.gamma * target_max * (
+                        1 - data.dones.flatten()
+                    )
+                    teacher_q_values = (
+                        teacher_model(data.observations) / args.temperature
+                    )
 
                 student_q_values = q_network(data.observations)
                 old_val = student_q_values.gather(1, data.actions).squeeze()
                 q_loss = F.mse_loss(td_target, old_val)
 
                 student_q_values = student_q_values / args.temperature
-                distill_loss = torch.mean(kl_divergence_with_logits(teacher_q_values, student_q_values))
+                distill_loss = torch.mean(
+                    kl_divergence_with_logits(teacher_q_values, student_q_values)
+                )
 
                 loss = q_loss + distill_coeff * distill_loss
 
@@ -418,11 +495,19 @@ if __name__ == "__main__":
                     writer.add_scalar("losses/loss", loss, global_step)
                     writer.add_scalar("losses/td_loss", q_loss, global_step)
                     writer.add_scalar("losses/distill_loss", distill_loss, global_step)
-                    writer.add_scalar("losses/q_values", old_val.mean().item(), global_step)
-                    writer.add_scalar("charts/distill_coeff", distill_coeff, global_step)
+                    writer.add_scalar(
+                        "losses/q_values", old_val.mean().item(), global_step
+                    )
+                    writer.add_scalar(
+                        "charts/distill_coeff", distill_coeff, global_step
+                    )
                     print("SPS:", int(global_step / (time.time() - start_time)))
                     print(distill_coeff)
-                    writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
+                    writer.add_scalar(
+                        "charts/SPS",
+                        int(global_step / (time.time() - start_time)),
+                        global_step,
+                    )
 
                 # optimize the model
                 optimizer.zero_grad()
@@ -431,9 +516,12 @@ if __name__ == "__main__":
 
             # update the target network
             if global_step % args.target_network_frequency == 0:
-                for target_network_param, q_network_param in zip(target_network.parameters(), q_network.parameters()):
+                for target_network_param, q_network_param in zip(
+                    target_network.parameters(), q_network.parameters()
+                ):
                     target_network_param.data.copy_(
-                        args.tau * q_network_param.data + (1.0 - args.tau) * target_network_param.data
+                        args.tau * q_network_param.data
+                        + (1.0 - args.tau) * target_network_param.data
                     )
 
     if args.save_model:
@@ -460,7 +548,30 @@ if __name__ == "__main__":
 
             repo_name = f"{args.env_id}-{args.exp_name}-seed{args.seed}"
             repo_id = f"{args.hf_entity}/{repo_name}" if args.hf_entity else repo_name
-            push_to_hub(args, episodic_returns, repo_id, "Qdagger", f"runs/{run_name}", f"videos/{run_name}-eval")
+            push_to_hub(
+                args,
+                episodic_returns,
+                repo_id,
+                "Qdagger",
+                f"runs/{run_name}",
+                f"videos/{run_name}-eval",
+            )
 
     envs.close()
     writer.close()
+
+    video_candidates = [
+        f for f in os.listdir(f"videos/{run_name}") if f.endswith(".mp4")
+    ]
+    # is in format rl-video-episode-episode_id.mp4
+    # sort by episode_id
+    video_candidates.sort(key=lambda x: int(x.split("-")[-1].split(".")[0]))
+    for video in video_candidates:
+        episode_id = int(video.split("-")[-1].split(".")[0])
+        wandb.log(
+            {
+                f"video/{episode_id}": wandb.Video(
+                    f"videos/{run_name}/{video}", format="mp4"
+                )
+            }
+        )

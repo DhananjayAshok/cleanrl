@@ -51,17 +51,25 @@ def evaluate(
             [
                 (
                     jax.device_get(actions)[0]
-                    + np.random.normal(0, max_action * exploration_noise, size=envs.single_action_space.shape)
+                    + np.random.normal(
+                        0,
+                        max_action * exploration_noise,
+                        size=envs.single_action_space.shape,
+                    )
                 ).clip(envs.single_action_space.low, envs.single_action_space.high)
             ]
         )
 
         next_obs, _, _, _, infos = envs.step(actions)
         if "final_info" in infos:
+            if isinstance(infos["final_info"], dict):
+                infos["final_info"] = [infos["final_info"]]
             for info in infos["final_info"]:
                 if "episode" not in info:
                     continue
-                print(f"eval_episode={len(episodic_returns)}, episodic_return={info['episode']['r']}")
+                print(
+                    f"eval_episode={len(episodic_returns)}, episodic_return={info['episode']['r']}"
+                )
                 episodic_returns += [info["episode"]["r"]]
         obs = next_obs
 
@@ -74,7 +82,8 @@ if __name__ == "__main__":
     from cleanrl.td3_continuous_action_jax import Actor, QNetwork, make_env
 
     model_path = hf_hub_download(
-        repo_id="cleanrl/HalfCheetah-v4-td3_continuous_action_jax-seed1", filename="td3_continuous_action_jax.cleanrl_model"
+        repo_id="cleanrl/HalfCheetah-v4-td3_continuous_action_jax-seed1",
+        filename="td3_continuous_action_jax.cleanrl_model",
     )
     evaluate(
         model_path,

@@ -191,7 +191,9 @@ if __name__ == "__main__":
     args = tyro.cli(Args)
     assert args.num_envs == 1, "vectorized envs are not supported at the moment"
     if args.teacher_policy_hf_repo is None:
-        args.teacher_policy_hf_repo = f"cleanrl/{args.env_id}-{args.teacher_model_exp_name}-seed1"
+        args.teacher_policy_hf_repo = (
+            f"cleanrl/{args.env_id}-{args.teacher_model_exp_name}-seed1"
+        )
     run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
     if args.track:
         import wandb
@@ -202,13 +204,14 @@ if __name__ == "__main__":
             sync_tensorboard=True,
             config=vars(args),
             name=run_name,
-            monitor_gym=True,
+            monitor_gym=False,
             save_code=True,
         )
     writer = SummaryWriter(f"runs/{run_name}")
     writer.add_text(
         "hyperparameters",
-        "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
+        "|param|value|\n|-|-|\n%s"
+        % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
     )
 
     # TRY NOT TO MODIFY: seeding
@@ -219,9 +222,15 @@ if __name__ == "__main__":
 
     # env setup
     envs = gym.vector.SyncVectorEnv(
-        [make_env(args.env_id, args.seed + i, i, args.capture_video, run_name) for i in range(args.num_envs)]
+        [
+            make_env(args.env_id, args.seed + i, i, args.capture_video, run_name)
+            for i in range(args.num_envs)
+        ],
+        autoreset_mode=gym.vector.AutoresetMode.SAME_STEP,
     )
-    assert isinstance(envs.single_action_space, gym.spaces.Discrete), "only discrete action space is supported"
+    assert isinstance(
+        envs.single_action_space, gym.spaces.Discrete
+    ), "only discrete action space is supported"
 
     q_network = QNetwork(channelss=(16, 32, 32), action_dim=envs.single_action_space.n)
 
@@ -235,11 +244,14 @@ if __name__ == "__main__":
 
     # QDAGGER LOGIC:
     teacher_model_path = hf_hub_download(
-        repo_id=args.teacher_policy_hf_repo, filename=f"{args.teacher_model_exp_name}.cleanrl_model"
+        repo_id=args.teacher_policy_hf_repo,
+        filename=f"{args.teacher_model_exp_name}.cleanrl_model",
     )
     teacher_model = TeacherModel(action_dim=envs.single_action_space.n)
     teacher_model_key = jax.random.PRNGKey(args.seed)
-    teacher_params = teacher_model.init(teacher_model_key, envs.observation_space.sample())
+    teacher_params = teacher_model.init(
+        teacher_model_key, envs.observation_space.sample()
+    )
     with open(teacher_model_path, "rb") as f:
         teacher_params = flax.serialization.from_bytes(teacher_params, f.read())
     teacher_model.apply = jax.jit(teacher_model.apply)
@@ -255,7 +267,9 @@ if __name__ == "__main__":
         epsilon=args.end_e,
         capture_video=False,
     )
-    writer.add_scalar("charts/teacher/avg_episodic_return", np.mean(teacher_episodic_returns), 0)
+    writer.add_scalar(
+        "charts/teacher/avg_episodic_return", np.mean(teacher_episodic_returns), 0
+    )
 
     # collect teacher data for args.teacher_steps
     # we assume we don't have access to the teacher's replay buffer
@@ -270,10 +284,16 @@ if __name__ == "__main__":
     )
 
     obs, _ = envs.reset(seed=args.seed)
-    for global_step in track(range(args.teacher_steps), description="filling teacher's replay buffer"):
-        epsilon = linear_schedule(args.start_e, args.end_e, args.teacher_steps, global_step)
+    for global_step in track(
+        range(args.teacher_steps), description="filling teacher's replay buffer"
+    ):
+        epsilon = linear_schedule(
+            args.start_e, args.end_e, args.teacher_steps, global_step
+        )
         if random.random() < epsilon:
-            actions = np.array([envs.single_action_space.sample() for _ in range(envs.num_envs)])
+            actions = np.array(
+                [envs.single_action_space.sample() for _ in range(envs.num_envs)]
+            )
         else:
             q_values = teacher_model.apply(teacher_params, obs)
             actions = q_values.argmax(axis=-1)
@@ -282,40 +302,54 @@ if __name__ == "__main__":
         real_next_obs = next_obs.copy()
         for idx, d in enumerate(truncated):
             if d:
-                real_next_obs[idx] = infos["final_observation"][idx]
+                real_next_obs[idx] = infos["final_obs"][idx]
         teacher_rb.add(obs, real_next_obs, actions, rewards, terminated, infos)
         obs = next_obs
 
     def kl_divergence_with_logits(target_logits, prediction_logits):
         """Implementation of on-policy distillation loss."""
-        out = -nn.softmax(target_logits) * (nn.log_softmax(prediction_logits) - nn.log_softmax(target_logits))
+        out = -nn.softmax(target_logits) * (
+            nn.log_softmax(prediction_logits) - nn.log_softmax(target_logits)
+        )
         return jnp.sum(out)
 
     @jax.jit
-    def update(q_state, observations, actions, next_observations, rewards, dones, distill_coeff):
-        q_next_target = q_network.apply(q_state.target_params, next_observations)  # (batch_size, num_actions)
+    def update(
+        q_state, observations, actions, next_observations, rewards, dones, distill_coeff
+    ):
+        q_next_target = q_network.apply(
+            q_state.target_params, next_observations
+        )  # (batch_size, num_actions)
         q_next_target = jnp.max(q_next_target, axis=-1)  # (batch_size,)
         td_target = rewards + (1 - dones) * args.gamma * q_next_target
         teacher_q_values = teacher_model.apply(teacher_params, observations)
 
         def loss(params, td_target, teacher_q_values, distill_coeff):
-            student_q_values = q_network.apply(params, observations)  # (batch_size, num_actions)
-            q_pred = student_q_values[np.arange(student_q_values.shape[0]), actions.squeeze()]  # (batch_size,)
+            student_q_values = q_network.apply(
+                params, observations
+            )  # (batch_size, num_actions)
+            q_pred = student_q_values[
+                np.arange(student_q_values.shape[0]), actions.squeeze()
+            ]  # (batch_size,)
             q_loss = ((q_pred - td_target) ** 2).mean()
             teacher_q_values = teacher_q_values / args.temperature
             student_q_values = student_q_values / args.temperature
-            distill_loss = jnp.mean(jax.vmap(kl_divergence_with_logits)(teacher_q_values, student_q_values))
+            distill_loss = jnp.mean(
+                jax.vmap(kl_divergence_with_logits)(teacher_q_values, student_q_values)
+            )
             overall_loss = q_loss + distill_coeff * distill_loss
             return overall_loss, (q_loss, q_pred, distill_loss)
 
-        (loss_value, (q_loss, q_pred, distill_loss)), grads = jax.value_and_grad(loss, has_aux=True)(
-            q_state.params, td_target, teacher_q_values, distill_coeff
-        )
+        (loss_value, (q_loss, q_pred, distill_loss)), grads = jax.value_and_grad(
+            loss, has_aux=True
+        )(q_state.params, td_target, teacher_q_values, distill_coeff)
         q_state = q_state.apply_gradients(grads=grads)
         return loss_value, q_loss, q_pred, distill_loss, q_state
 
     # offline training phase: train the student model using the qdagger loss
-    for global_step in track(range(args.offline_steps), description="offline student training"):
+    for global_step in track(
+        range(args.offline_steps), description="offline student training"
+    ):
         data = teacher_rb.sample(args.batch_size)
         # perform a gradient-descent step
         loss, q_loss, old_val, distill_loss, q_state = update(
@@ -330,16 +364,26 @@ if __name__ == "__main__":
 
         # update the target network
         if global_step % args.target_network_frequency == 0:
-            q_state = q_state.replace(target_params=optax.incremental_update(q_state.params, q_state.target_params, args.tau))
+            q_state = q_state.replace(
+                target_params=optax.incremental_update(
+                    q_state.params, q_state.target_params, args.tau
+                )
+            )
 
         if global_step % 100 == 0:
             writer.add_scalar("charts/offline/loss", jax.device_get(loss), global_step)
-            writer.add_scalar("charts/offline/q_loss", jax.device_get(q_loss), global_step)
-            writer.add_scalar("charts/offline/distill_loss", jax.device_get(distill_loss), global_step)
+            writer.add_scalar(
+                "charts/offline/q_loss", jax.device_get(q_loss), global_step
+            )
+            writer.add_scalar(
+                "charts/offline/distill_loss", jax.device_get(distill_loss), global_step
+            )
 
         if global_step % 100000 == 0:
             # evaluate the student model
-            model_path = f"runs/{run_name}/{args.exp_name}-offline-{global_step}.cleanrl_model"
+            model_path = (
+                f"runs/{run_name}/{args.exp_name}-offline-{global_step}.cleanrl_model"
+            )
             with open(model_path, "wb") as f:
                 f.write(flax.serialization.to_bytes(q_state.params))
             print(f"model saved to {model_path}")
@@ -354,7 +398,11 @@ if __name__ == "__main__":
                 epsilon=args.end_e,
             )
             print(episodic_returns)
-            writer.add_scalar("charts/offline/avg_episodic_return", np.mean(episodic_returns), global_step)
+            writer.add_scalar(
+                "charts/offline/avg_episodic_return",
+                np.mean(episodic_returns),
+                global_step,
+            )
 
     rb = ReplayBuffer(
         args.buffer_size,
@@ -368,17 +416,30 @@ if __name__ == "__main__":
 
     # TRY NOT TO MODIFY: start the game
     envs = gym.vector.SyncVectorEnv(
-        [make_env(args.env_id, args.seed + i, i, args.capture_video, run_name) for i in range(args.num_envs)]
+        [
+            make_env(args.env_id, args.seed + i, i, args.capture_video, run_name)
+            for i in range(args.num_envs)
+        ],
+        autoreset_mode=gym.vector.AutoresetMode.SAME_STEP,
     )
     obs, _ = envs.reset(seed=args.seed)
     episodic_returns = deque(maxlen=10)
     # online training phase
-    for global_step in track(range(args.total_timesteps), description="online student training"):
+    for global_step in track(
+        range(args.total_timesteps), description="online student training"
+    ):
         global_step += args.offline_steps
         # ALGO LOGIC: put action logic here
-        epsilon = linear_schedule(args.start_e, args.end_e, args.exploration_fraction * args.total_timesteps, global_step)
+        epsilon = linear_schedule(
+            args.start_e,
+            args.end_e,
+            args.exploration_fraction * args.total_timesteps,
+            global_step,
+        )
         if random.random() < epsilon:
-            actions = np.array([envs.single_action_space.sample() for _ in range(envs.num_envs)])
+            actions = np.array(
+                [envs.single_action_space.sample() for _ in range(envs.num_envs)]
+            )
         else:
             q_values = q_network.apply(q_state.params, obs)
             actions = q_values.argmax(axis=-1)
@@ -389,13 +450,21 @@ if __name__ == "__main__":
 
         # TRY NOT TO MODIFY: record rewards for plotting purposes
         if "final_info" in infos:
+            if isinstance(infos["final_info"], dict):
+                infos["final_info"] = [infos["final_info"]]
             for info in infos["final_info"]:
                 # Skip the envs that are not done
                 if "episode" not in info:
                     continue
-                print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
-                writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
-                writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
+                print(
+                    f"global_step={global_step}, episodic_return={info['episode']['r']}"
+                )
+                writer.add_scalar(
+                    "charts/episodic_return", info["episode"]["r"], global_step
+                )
+                writer.add_scalar(
+                    "charts/episodic_length", info["episode"]["l"], global_step
+                )
                 writer.add_scalar("charts/epsilon", epsilon, global_step)
                 episodic_returns.append(info["episode"]["r"])
                 break
@@ -404,7 +473,7 @@ if __name__ == "__main__":
         real_next_obs = next_obs.copy()
         for idx, d in enumerate(truncated):
             if d:
-                real_next_obs[idx] = infos["final_observation"][idx]
+                real_next_obs[idx] = infos["final_obs"][idx]
         rb.add(obs, real_next_obs, actions, rewards, terminated, infos)
 
         # TRY NOT TO MODIFY: CRUCIAL step easy to overlook
@@ -418,7 +487,11 @@ if __name__ == "__main__":
                 if len(episodic_returns) < 10:
                     distill_coeff = 1.0
                 else:
-                    distill_coeff = max(1 - np.mean(episodic_returns) / np.mean(teacher_episodic_returns), 0)
+                    distill_coeff = max(
+                        1
+                        - np.mean(episodic_returns) / np.mean(teacher_episodic_returns),
+                        0,
+                    )
                 loss, q_loss, old_val, distill_loss, q_state = update(
                     q_state,
                     data.observations.numpy(),
@@ -431,18 +504,32 @@ if __name__ == "__main__":
 
                 if global_step % 100 == 0:
                     writer.add_scalar("losses/loss", jax.device_get(loss), global_step)
-                    writer.add_scalar("losses/td_loss", jax.device_get(q_loss), global_step)
-                    writer.add_scalar("losses/distill_loss", jax.device_get(distill_loss), global_step)
-                    writer.add_scalar("losses/q_values", jax.device_get(old_val).mean(), global_step)
-                    writer.add_scalar("charts/distill_coeff", distill_coeff, global_step)
+                    writer.add_scalar(
+                        "losses/td_loss", jax.device_get(q_loss), global_step
+                    )
+                    writer.add_scalar(
+                        "losses/distill_loss", jax.device_get(distill_loss), global_step
+                    )
+                    writer.add_scalar(
+                        "losses/q_values", jax.device_get(old_val).mean(), global_step
+                    )
+                    writer.add_scalar(
+                        "charts/distill_coeff", distill_coeff, global_step
+                    )
                     print("SPS:", int(global_step / (time.time() - start_time)))
                     print(distill_coeff)
-                    writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
+                    writer.add_scalar(
+                        "charts/SPS",
+                        int(global_step / (time.time() - start_time)),
+                        global_step,
+                    )
 
             # update the target network
             if global_step % args.target_network_frequency == 0:
                 q_state = q_state.replace(
-                    target_params=optax.incremental_update(q_state.params, q_state.target_params, args.tau)
+                    target_params=optax.incremental_update(
+                        q_state.params, q_state.target_params, args.tau
+                    )
                 )
 
     if args.save_model:
@@ -469,7 +556,30 @@ if __name__ == "__main__":
 
             repo_name = f"{args.env_id}-{args.exp_name}-seed{args.seed}"
             repo_id = f"{args.hf_entity}/{repo_name}" if args.hf_entity else repo_name
-            push_to_hub(args, episodic_returns, repo_id, "Qdagger", f"runs/{run_name}", f"videos/{run_name}-eval")
+            push_to_hub(
+                args,
+                episodic_returns,
+                repo_id,
+                "Qdagger",
+                f"runs/{run_name}",
+                f"videos/{run_name}-eval",
+            )
 
     envs.close()
     writer.close()
+
+    video_candidates = [
+        f for f in os.listdir(f"videos/{run_name}") if f.endswith(".mp4")
+    ]
+    # is in format rl-video-episode-episode_id.mp4
+    # sort by episode_id
+    video_candidates.sort(key=lambda x: int(x.split("-")[-1].split(".")[0]))
+    for video in video_candidates:
+        episode_id = int(video.split("-")[-1].split(".")[0])
+        wandb.log(
+            {
+                f"video/{episode_id}": wandb.Video(
+                    f"videos/{run_name}/{video}", format="mp4"
+                )
+            }
+        )

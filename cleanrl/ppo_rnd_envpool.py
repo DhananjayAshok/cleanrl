@@ -151,7 +151,9 @@ class Agent(nn.Module):
             layer_init(nn.Linear(256, 448)),
             nn.ReLU(),
         )
-        self.extra_layer = nn.Sequential(layer_init(nn.Linear(448, 448), std=0.1), nn.ReLU())
+        self.extra_layer = nn.Sequential(
+            layer_init(nn.Linear(448, 448), std=0.1), nn.ReLU()
+        )
         self.actor = nn.Sequential(
             layer_init(nn.Linear(448, 448), std=0.01),
             nn.ReLU(),
@@ -192,11 +194,17 @@ class RNDModel(nn.Module):
 
         # Prediction network
         self.predictor = nn.Sequential(
-            layer_init(nn.Conv2d(in_channels=1, out_channels=32, kernel_size=8, stride=4)),
+            layer_init(
+                nn.Conv2d(in_channels=1, out_channels=32, kernel_size=8, stride=4)
+            ),
             nn.LeakyReLU(),
-            layer_init(nn.Conv2d(in_channels=32, out_channels=64, kernel_size=4, stride=2)),
+            layer_init(
+                nn.Conv2d(in_channels=32, out_channels=64, kernel_size=4, stride=2)
+            ),
             nn.LeakyReLU(),
-            layer_init(nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1)),
+            layer_init(
+                nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1)
+            ),
             nn.LeakyReLU(),
             nn.Flatten(),
             layer_init(nn.Linear(feature_output, 512)),
@@ -208,11 +216,17 @@ class RNDModel(nn.Module):
 
         # Target network
         self.target = nn.Sequential(
-            layer_init(nn.Conv2d(in_channels=1, out_channels=32, kernel_size=8, stride=4)),
+            layer_init(
+                nn.Conv2d(in_channels=1, out_channels=32, kernel_size=8, stride=4)
+            ),
             nn.LeakyReLU(),
-            layer_init(nn.Conv2d(in_channels=32, out_channels=64, kernel_size=4, stride=2)),
+            layer_init(
+                nn.Conv2d(in_channels=32, out_channels=64, kernel_size=4, stride=2)
+            ),
             nn.LeakyReLU(),
-            layer_init(nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1)),
+            layer_init(
+                nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1)
+            ),
             nn.LeakyReLU(),
             nn.Flatten(),
             layer_init(nn.Linear(feature_output, 512)),
@@ -257,13 +271,14 @@ if __name__ == "__main__":
             sync_tensorboard=True,
             config=vars(args),
             name=run_name,
-            monitor_gym=True,
+            monitor_gym=False,
             save_code=True,
         )
     writer = SummaryWriter(f"runs/{run_name}")
     writer.add_text(
         "hyperparameters",
-        "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
+        "|param|value|\n|-|-|\n%s"
+        % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
     )
 
     # TRY NOT TO MODIFY: seeding
@@ -288,11 +303,15 @@ if __name__ == "__main__":
     envs.single_action_space = envs.action_space
     envs.single_observation_space = envs.observation_space
     envs = RecordEpisodeStatistics(envs)
-    assert isinstance(envs.action_space, gym.spaces.Discrete), "only discrete action space is supported"
+    assert isinstance(
+        envs.action_space, gym.spaces.Discrete
+    ), "only discrete action space is supported"
 
     agent = Agent(envs).to(device)
     rnd_model = RNDModel(4, envs.single_action_space.n).to(device)
-    combined_parameters = list(agent.parameters()) + list(rnd_model.predictor.parameters())
+    combined_parameters = list(agent.parameters()) + list(
+        rnd_model.predictor.parameters()
+    )
     optimizer = optim.Adam(
         combined_parameters,
         lr=args.learning_rate,
@@ -304,8 +323,12 @@ if __name__ == "__main__":
     discounted_reward = RewardForwardFilter(args.int_gamma)
 
     # ALGO Logic: Storage setup
-    obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape).to(device)
-    actions = torch.zeros((args.num_steps, args.num_envs) + envs.single_action_space.shape).to(device)
+    obs = torch.zeros(
+        (args.num_steps, args.num_envs) + envs.single_observation_space.shape
+    ).to(device)
+    actions = torch.zeros(
+        (args.num_steps, args.num_envs) + envs.single_action_space.shape
+    ).to(device)
     logprobs = torch.zeros((args.num_steps, args.num_envs)).to(device)
     rewards = torch.zeros((args.num_steps, args.num_envs)).to(device)
     curiosity_rewards = torch.zeros((args.num_steps, args.num_envs)).to(device)
@@ -361,16 +384,23 @@ if __name__ == "__main__":
             # TRY NOT TO MODIFY: execute the game and log data.
             next_obs, reward, done, info = envs.step(action.cpu().numpy())
             rewards[step] = torch.tensor(reward).to(device).view(-1)
-            next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(done).to(device)
+            next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(
+                done
+            ).to(device)
             rnd_next_obs = (
                 (
-                    (next_obs[:, 3, :, :].reshape(args.num_envs, 1, 84, 84) - torch.from_numpy(obs_rms.mean).to(device))
+                    (
+                        next_obs[:, 3, :, :].reshape(args.num_envs, 1, 84, 84)
+                        - torch.from_numpy(obs_rms.mean).to(device)
+                    )
                     / torch.sqrt(torch.from_numpy(obs_rms.var).to(device))
                 ).clip(-5, 5)
             ).float()
             target_next_feature = rnd_model.target(rnd_next_obs)
             predict_next_feature = rnd_model.predictor(rnd_next_obs)
-            curiosity_rewards[step] = ((target_next_feature - predict_next_feature).pow(2).sum(1) / 2).data
+            curiosity_rewards[step] = (
+                (target_next_feature - predict_next_feature).pow(2).sum(1) / 2
+            ).data
             for idx, d in enumerate(done):
                 if d and info["lives"][idx] == 0:
                     avg_returns.append(info["r"][idx])
@@ -378,17 +408,26 @@ if __name__ == "__main__":
                     print(
                         f"global_step={global_step}, episodic_return={info['r'][idx]}, curiosity_reward={np.mean(curiosity_rewards[step].cpu().numpy())}"
                     )
-                    writer.add_scalar("charts/avg_episodic_return", epi_ret, global_step)
-                    writer.add_scalar("charts/episodic_return", info["r"][idx], global_step)
+                    writer.add_scalar(
+                        "charts/avg_episodic_return", epi_ret, global_step
+                    )
+                    writer.add_scalar(
+                        "charts/episodic_return", info["r"][idx], global_step
+                    )
                     writer.add_scalar(
                         "charts/episode_curiosity_reward",
                         curiosity_rewards[step][idx],
                         global_step,
                     )
-                    writer.add_scalar("charts/episodic_length", info["l"][idx], global_step)
+                    writer.add_scalar(
+                        "charts/episodic_length", info["l"][idx], global_step
+                    )
 
         curiosity_reward_per_env = np.array(
-            [discounted_reward.update(reward_per_step) for reward_per_step in curiosity_rewards.cpu().data.numpy().T]
+            [
+                discounted_reward.update(reward_per_step)
+                for reward_per_step in curiosity_rewards.cpu().data.numpy().T
+            ]
         )
         mean, std, count = (
             np.mean(curiosity_reward_per_env),
@@ -402,7 +441,9 @@ if __name__ == "__main__":
         # bootstrap value if not done
         with torch.no_grad():
             next_value_ext, next_value_int = agent.get_value(next_obs)
-            next_value_ext, next_value_int = next_value_ext.reshape(1, -1), next_value_int.reshape(1, -1)
+            next_value_ext, next_value_int = next_value_ext.reshape(
+                1, -1
+            ), next_value_int.reshape(1, -1)
             ext_advantages = torch.zeros_like(rewards, device=device)
             int_advantages = torch.zeros_like(curiosity_rewards, device=device)
             ext_lastgaelam = 0
@@ -418,13 +459,29 @@ if __name__ == "__main__":
                     int_nextnonterminal = 1.0
                     ext_nextvalues = ext_values[t + 1]
                     int_nextvalues = int_values[t + 1]
-                ext_delta = rewards[t] + args.gamma * ext_nextvalues * ext_nextnonterminal - ext_values[t]
-                int_delta = curiosity_rewards[t] + args.int_gamma * int_nextvalues * int_nextnonterminal - int_values[t]
+                ext_delta = (
+                    rewards[t]
+                    + args.gamma * ext_nextvalues * ext_nextnonterminal
+                    - ext_values[t]
+                )
+                int_delta = (
+                    curiosity_rewards[t]
+                    + args.int_gamma * int_nextvalues * int_nextnonterminal
+                    - int_values[t]
+                )
                 ext_advantages[t] = ext_lastgaelam = (
-                    ext_delta + args.gamma * args.gae_lambda * ext_nextnonterminal * ext_lastgaelam
+                    ext_delta
+                    + args.gamma
+                    * args.gae_lambda
+                    * ext_nextnonterminal
+                    * ext_lastgaelam
                 )
                 int_advantages[t] = int_lastgaelam = (
-                    int_delta + args.int_gamma * args.gae_lambda * int_nextnonterminal * int_lastgaelam
+                    int_delta
+                    + args.int_gamma
+                    * args.gae_lambda
+                    * int_nextnonterminal
+                    * int_lastgaelam
                 )
             ext_returns = ext_advantages + ext_values
             int_returns = int_advantages + int_values
@@ -439,7 +496,9 @@ if __name__ == "__main__":
         b_int_returns = int_returns.reshape(-1)
         b_ext_values = ext_values.reshape(-1)
 
-        b_advantages = b_int_advantages * args.int_coef + b_ext_advantages * args.ext_coef
+        b_advantages = (
+            b_int_advantages * args.int_coef + b_ext_advantages * args.ext_coef
+        )
 
         obs_rms.update(b_obs[:, 3, :, :].reshape(-1, 1, 84, 84).cpu().numpy())
 
@@ -448,7 +507,10 @@ if __name__ == "__main__":
 
         rnd_next_obs = (
             (
-                (b_obs[:, 3, :, :].reshape(-1, 1, 84, 84) - torch.from_numpy(obs_rms.mean).to(device))
+                (
+                    b_obs[:, 3, :, :].reshape(-1, 1, 84, 84)
+                    - torch.from_numpy(obs_rms.mean).to(device)
+                )
                 / torch.sqrt(torch.from_numpy(obs_rms.var).to(device))
             ).clip(-5, 5)
         ).float()
@@ -460,18 +522,26 @@ if __name__ == "__main__":
                 end = start + args.minibatch_size
                 mb_inds = b_inds[start:end]
 
-                predict_next_state_feature, target_next_state_feature = rnd_model(rnd_next_obs[mb_inds])
+                predict_next_state_feature, target_next_state_feature = rnd_model(
+                    rnd_next_obs[mb_inds]
+                )
                 forward_loss = F.mse_loss(
-                    predict_next_state_feature, target_next_state_feature.detach(), reduction="none"
+                    predict_next_state_feature,
+                    target_next_state_feature.detach(),
+                    reduction="none",
                 ).mean(-1)
 
                 mask = torch.rand(len(forward_loss), device=device)
-                mask = (mask < args.update_proportion).type(torch.FloatTensor).to(device)
+                mask = (
+                    (mask < args.update_proportion).type(torch.FloatTensor).to(device)
+                )
                 forward_loss = (forward_loss * mask).sum() / torch.max(
                     mask.sum(), torch.tensor([1], device=device, dtype=torch.float32)
                 )
-                _, newlogprob, entropy, new_ext_values, new_int_values = agent.get_action_and_value(
-                    b_obs[mb_inds], b_actions.long()[mb_inds]
+                _, newlogprob, entropy, new_ext_values, new_int_values = (
+                    agent.get_action_and_value(
+                        b_obs[mb_inds], b_actions.long()[mb_inds]
+                    )
                 )
                 logratio = newlogprob - b_logprobs[mb_inds]
                 ratio = logratio.exp()
@@ -480,21 +550,31 @@ if __name__ == "__main__":
                     # calculate approx_kl http://joschu.net/blog/kl-approx.html
                     old_approx_kl = (-logratio).mean()
                     approx_kl = ((ratio - 1) - logratio).mean()
-                    clipfracs += [((ratio - 1.0).abs() > args.clip_coef).float().mean().item()]
+                    clipfracs += [
+                        ((ratio - 1.0).abs() > args.clip_coef).float().mean().item()
+                    ]
 
                 mb_advantages = b_advantages[mb_inds]
                 if args.norm_adv:
-                    mb_advantages = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + 1e-8)
+                    mb_advantages = (mb_advantages - mb_advantages.mean()) / (
+                        mb_advantages.std() + 1e-8
+                    )
 
                 # Policy loss
                 pg_loss1 = -mb_advantages * ratio
-                pg_loss2 = -mb_advantages * torch.clamp(ratio, 1 - args.clip_coef, 1 + args.clip_coef)
+                pg_loss2 = -mb_advantages * torch.clamp(
+                    ratio, 1 - args.clip_coef, 1 + args.clip_coef
+                )
                 pg_loss = torch.max(pg_loss1, pg_loss2).mean()
 
                 # Value loss
-                new_ext_values, new_int_values = new_ext_values.view(-1), new_int_values.view(-1)
+                new_ext_values, new_int_values = new_ext_values.view(
+                    -1
+                ), new_int_values.view(-1)
                 if args.clip_vloss:
-                    ext_v_loss_unclipped = (new_ext_values - b_ext_returns[mb_inds]) ** 2
+                    ext_v_loss_unclipped = (
+                        new_ext_values - b_ext_returns[mb_inds]
+                    ) ** 2
                     ext_v_clipped = b_ext_values[mb_inds] + torch.clamp(
                         new_ext_values - b_ext_values[mb_inds],
                         -args.clip_coef,
@@ -504,12 +584,21 @@ if __name__ == "__main__":
                     ext_v_loss_max = torch.max(ext_v_loss_unclipped, ext_v_loss_clipped)
                     ext_v_loss = 0.5 * ext_v_loss_max.mean()
                 else:
-                    ext_v_loss = 0.5 * ((new_ext_values - b_ext_returns[mb_inds]) ** 2).mean()
+                    ext_v_loss = (
+                        0.5 * ((new_ext_values - b_ext_returns[mb_inds]) ** 2).mean()
+                    )
 
-                int_v_loss = 0.5 * ((new_int_values - b_int_returns[mb_inds]) ** 2).mean()
+                int_v_loss = (
+                    0.5 * ((new_int_values - b_int_returns[mb_inds]) ** 2).mean()
+                )
                 v_loss = ext_v_loss + int_v_loss
                 entropy_loss = entropy.mean()
-                loss = pg_loss - args.ent_coef * entropy_loss + v_loss * args.vf_coef + forward_loss
+                loss = (
+                    pg_loss
+                    - args.ent_coef * entropy_loss
+                    + v_loss * args.vf_coef
+                    + forward_loss
+                )
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -525,7 +614,9 @@ if __name__ == "__main__":
                     break
 
         # TRY NOT TO MODIFY: record rewards for plotting purposes
-        writer.add_scalar("charts/learning_rate", optimizer.param_groups[0]["lr"], global_step)
+        writer.add_scalar(
+            "charts/learning_rate", optimizer.param_groups[0]["lr"], global_step
+        )
         writer.add_scalar("losses/value_loss", v_loss.item(), global_step)
         writer.add_scalar("losses/policy_loss", pg_loss.item(), global_step)
         writer.add_scalar("losses/entropy", entropy_loss.item(), global_step)
@@ -533,7 +624,25 @@ if __name__ == "__main__":
         writer.add_scalar("losses/fwd_loss", forward_loss.item(), global_step)
         writer.add_scalar("losses/approx_kl", approx_kl.item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
-        writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
+        writer.add_scalar(
+            "charts/SPS", int(global_step / (time.time() - start_time)), global_step
+        )
 
     envs.close()
     writer.close()
+
+    video_candidates = [
+        f for f in os.listdir(f"videos/{run_name}") if f.endswith(".mp4")
+    ]
+    # is in format rl-video-episode-episode_id.mp4
+    # sort by episode_id
+    video_candidates.sort(key=lambda x: int(x.split("-")[-1].split(".")[0]))
+    for video in video_candidates:
+        episode_id = int(video.split("-")[-1].split(".")[0])
+        wandb.log(
+            {
+                f"video/{episode_id}": wandb.Video(
+                    f"videos/{run_name}/{video}", format="mp4"
+                )
+            }
+        )

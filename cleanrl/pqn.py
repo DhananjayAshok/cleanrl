@@ -91,7 +91,9 @@ class QNetwork(nn.Module):
         super().__init__()
 
         self.network = nn.Sequential(
-            layer_init(nn.Linear(np.array(env.single_observation_space.shape).prod(), 120)),
+            layer_init(
+                nn.Linear(np.array(env.single_observation_space.shape).prod(), 120)
+            ),
             nn.LayerNorm(120),
             nn.ReLU(),
             layer_init(nn.Linear(120, 84)),
@@ -124,13 +126,14 @@ if __name__ == "__main__":
             sync_tensorboard=True,
             config=vars(args),
             name=run_name,
-            monitor_gym=True,
+            monitor_gym=False,
             save_code=True,
         )
     writer = SummaryWriter(f"runs/{run_name}")
     writer.add_text(
         "hyperparameters",
-        "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
+        "|param|value|\n|-|-|\n%s"
+        % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
     )
 
     # TRY NOT TO MODIFY: seeding
@@ -143,17 +146,27 @@ if __name__ == "__main__":
 
     # env setup
     envs = gym.vector.SyncVectorEnv(
-        [make_env(args.env_id, args.seed + i, i, args.capture_video, run_name) for i in range(args.num_envs)]
+        [
+            make_env(args.env_id, args.seed + i, i, args.capture_video, run_name)
+            for i in range(args.num_envs)
+        ],
+        autoreset_mode=gym.vector.AutoresetMode.SAME_STEP,
     )
-    assert isinstance(envs.single_action_space, gym.spaces.Discrete), "only discrete action space is supported"
+    assert isinstance(
+        envs.single_action_space, gym.spaces.Discrete
+    ), "only discrete action space is supported"
 
     # agent setup
     q_network = QNetwork(envs).to(device)
     optimizer = optim.RAdam(q_network.parameters(), lr=args.learning_rate)
 
     # storage setup
-    obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape).to(device)
-    actions = torch.zeros((args.num_steps, args.num_envs) + envs.single_action_space.shape).to(device)
+    obs = torch.zeros(
+        (args.num_steps, args.num_envs) + envs.single_observation_space.shape
+    ).to(device)
+    actions = torch.zeros(
+        (args.num_steps, args.num_envs) + envs.single_action_space.shape
+    ).to(device)
     rewards = torch.zeros((args.num_steps, args.num_envs)).to(device)
     dones = torch.zeros((args.num_steps, args.num_envs)).to(device)
     values = torch.zeros((args.num_steps, args.num_envs)).to(device)
@@ -177,29 +190,50 @@ if __name__ == "__main__":
             obs[step] = next_obs
             dones[step] = next_done
 
-            epsilon = linear_schedule(args.start_e, args.end_e, args.exploration_fraction * args.total_timesteps, global_step)
-            random_actions = torch.randint(0, envs.single_action_space.n, (args.num_envs,)).to(device)
+            epsilon = linear_schedule(
+                args.start_e,
+                args.end_e,
+                args.exploration_fraction * args.total_timesteps,
+                global_step,
+            )
+            random_actions = torch.randint(
+                0, envs.single_action_space.n, (args.num_envs,)
+            ).to(device)
             with torch.no_grad():
                 q_values = q_network(next_obs)
                 max_actions = torch.argmax(q_values, dim=1)
-                values[step] = q_values[torch.arange(args.num_envs), max_actions].flatten()
+                values[step] = q_values[
+                    torch.arange(args.num_envs), max_actions
+                ].flatten()
 
             explore = torch.rand((args.num_envs,)).to(device) < epsilon
             action = torch.where(explore, random_actions, max_actions)
             actions[step] = action
 
             # TRY NOT TO MODIFY: execute the game and log data.
-            next_obs, reward, terminations, truncations, infos = envs.step(action.cpu().numpy())
+            next_obs, reward, terminations, truncations, infos = envs.step(
+                action.cpu().numpy()
+            )
             next_done = np.logical_or(terminations, truncations)
             rewards[step] = torch.tensor(reward).to(device).view(-1)
-            next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(next_done).to(device)
+            next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(
+                next_done
+            ).to(device)
 
             if "final_info" in infos:
+                if isinstance(infos["final_info"], dict):
+                    infos["final_info"] = [infos["final_info"]]
                 for info in infos["final_info"]:
                     if info and "episode" in info:
-                        print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
-                        writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
-                        writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
+                        print(
+                            f"global_step={global_step}, episodic_return={info['episode']['r']}"
+                        )
+                        writer.add_scalar(
+                            "charts/episodic_return", info["episode"]["r"], global_step
+                        )
+                        writer.add_scalar(
+                            "charts/episodic_length", info["episode"]["l"], global_step
+                        )
 
         # Compute Q(lambda) targets
         with torch.no_grad():
@@ -214,7 +248,12 @@ if __name__ == "__main__":
                     next_value = values[t + 1]
                     returns[t] = (
                         rewards[t]
-                        + args.gamma * (args.q_lambda * returns[t + 1] + (1 - args.q_lambda) * next_value) * nextnonterminal
+                        + args.gamma
+                        * (
+                            args.q_lambda * returns[t + 1]
+                            + (1 - args.q_lambda) * next_value
+                        )
+                        * nextnonterminal
                     )
 
         # flatten the batch
@@ -230,7 +269,11 @@ if __name__ == "__main__":
                 end = start + args.minibatch_size
                 mb_inds = b_inds[start:end]
 
-                old_val = q_network(b_obs[mb_inds]).gather(1, b_actions[mb_inds].unsqueeze(-1).long()).squeeze()
+                old_val = (
+                    q_network(b_obs[mb_inds])
+                    .gather(1, b_actions[mb_inds].unsqueeze(-1).long())
+                    .squeeze()
+                )
                 loss = F.mse_loss(b_returns[mb_inds], old_val)
 
                 # optimize the model
@@ -242,7 +285,25 @@ if __name__ == "__main__":
         writer.add_scalar("losses/td_loss", loss, global_step)
         writer.add_scalar("losses/q_values", old_val.mean().item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
-        writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
+        writer.add_scalar(
+            "charts/SPS", int(global_step / (time.time() - start_time)), global_step
+        )
 
     envs.close()
     writer.close()
+
+    video_candidates = [
+        f for f in os.listdir(f"videos/{run_name}") if f.endswith(".mp4")
+    ]
+    # is in format rl-video-episode-episode_id.mp4
+    # sort by episode_id
+    video_candidates.sort(key=lambda x: int(x.split("-")[-1].split(".")[0]))
+    for video in video_candidates:
+        episode_id = int(video.split("-")[-1].split(".")[0])
+        wandb.log(
+            {
+                f"video/{episode_id}": wandb.Video(
+                    f"videos/{run_name}/{video}", format="mp4"
+                )
+            }
+        )

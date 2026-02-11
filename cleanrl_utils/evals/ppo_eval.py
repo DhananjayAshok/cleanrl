@@ -15,7 +15,9 @@ def evaluate(
     capture_video: bool = True,
     gamma: float = 0.99,
 ):
-    envs = gym.vector.SyncVectorEnv([make_env(env_id, 0, capture_video, run_name, gamma)])
+    envs = gym.vector.SyncVectorEnv(
+        [make_env(env_id, 0, capture_video, run_name, gamma)]
+    )
     agent = Model(envs).to(device)
     agent.load_state_dict(torch.load(model_path, map_location=device))
     agent.eval()
@@ -26,10 +28,14 @@ def evaluate(
         actions, _, _, _ = agent.get_action_and_value(torch.Tensor(obs).to(device))
         next_obs, _, _, _, infos = envs.step(actions.cpu().numpy())
         if "final_info" in infos:
+            if isinstance(infos["final_info"], dict):
+                infos["final_info"] = [infos["final_info"]]
             for info in infos["final_info"]:
                 if "episode" not in info:
                     continue
-                print(f"eval_episode={len(episodic_returns)}, episodic_return={info['episode']['r']}")
+                print(
+                    f"eval_episode={len(episodic_returns)}, episodic_return={info['episode']['r']}"
+                )
                 episodic_returns += [info["episode"]["r"]]
         obs = next_obs
 
@@ -42,7 +48,8 @@ if __name__ == "__main__":
     from cleanrl.ppo_continuous_action import Agent, make_env
 
     model_path = hf_hub_download(
-        repo_id="sdpkjc/Hopper-v4-ppo_continuous_action-seed1", filename="ppo_continuous_action.cleanrl_model"
+        repo_id="sdpkjc/Hopper-v4-ppo_continuous_action-seed1",
+        filename="ppo_continuous_action.cleanrl_model",
     )
     evaluate(
         model_path,

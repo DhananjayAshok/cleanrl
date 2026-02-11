@@ -122,13 +122,14 @@ if __name__ == "__main__":
             sync_tensorboard=True,
             config=vars(args),
             name=run_name,
-            monitor_gym=True,
+            monitor_gym=False,
             save_code=True,
         )
     writer = SummaryWriter(f"runs/{run_name}")
     writer.add_text(
         "hyperparameters",
-        "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
+        "|param|value|\n|-|-|\n%s"
+        % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
     )
 
     # TRY NOT TO MODIFY: seeding
@@ -138,8 +139,12 @@ if __name__ == "__main__":
     key, actor_key, qf1_key = jax.random.split(key, 3)
 
     # env setup
-    envs = gym.vector.SyncVectorEnv([make_env(args.env_id, args.seed, 0, args.capture_video, run_name)])
-    assert isinstance(envs.single_action_space, gym.spaces.Box), "only continuous action space is supported"
+    envs = gym.vector.SyncVectorEnv(
+        [make_env(args.env_id, args.seed, 0, args.capture_video, run_name)]
+    )
+    assert isinstance(
+        envs.single_action_space, gym.spaces.Box
+    ), "only continuous action space is supported"
 
     max_action = float(envs.single_action_space.high[0])
     envs.single_observation_space.dtype = np.float32
@@ -185,15 +190,25 @@ if __name__ == "__main__":
         rewards: np.ndarray,
         terminations: np.ndarray,
     ):
-        next_state_actions = (actor.apply(actor_state.target_params, next_observations)).clip(-1, 1)  # TODO: proper clip
-        qf1_next_target = qf.apply(qf1_state.target_params, next_observations, next_state_actions).reshape(-1)
-        next_q_value = (rewards + (1 - terminations) * args.gamma * (qf1_next_target)).reshape(-1)
+        next_state_actions = (
+            actor.apply(actor_state.target_params, next_observations)
+        ).clip(
+            -1, 1
+        )  # TODO: proper clip
+        qf1_next_target = qf.apply(
+            qf1_state.target_params, next_observations, next_state_actions
+        ).reshape(-1)
+        next_q_value = (
+            rewards + (1 - terminations) * args.gamma * (qf1_next_target)
+        ).reshape(-1)
 
         def mse_loss(params):
             qf_a_values = qf.apply(params, observations, actions).squeeze()
             return ((qf_a_values - next_q_value) ** 2).mean(), qf_a_values.mean()
 
-        (qf1_loss_value, qf1_a_values), grads1 = jax.value_and_grad(mse_loss, has_aux=True)(qf1_state.params)
+        (qf1_loss_value, qf1_a_values), grads1 = jax.value_and_grad(
+            mse_loss, has_aux=True
+        )(qf1_state.params)
         qf1_state = qf1_state.apply_gradients(grads=grads1)
 
         return qf1_state, qf1_loss_value, qf1_a_values
@@ -205,16 +220,22 @@ if __name__ == "__main__":
         observations: np.ndarray,
     ):
         def actor_loss(params):
-            return -qf.apply(qf1_state.params, observations, actor.apply(params, observations)).mean()
+            return -qf.apply(
+                qf1_state.params, observations, actor.apply(params, observations)
+            ).mean()
 
         actor_loss_value, grads = jax.value_and_grad(actor_loss)(actor_state.params)
         actor_state = actor_state.apply_gradients(grads=grads)
         actor_state = actor_state.replace(
-            target_params=optax.incremental_update(actor_state.params, actor_state.target_params, args.tau)
+            target_params=optax.incremental_update(
+                actor_state.params, actor_state.target_params, args.tau
+            )
         )
 
         qf1_state = qf1_state.replace(
-            target_params=optax.incremental_update(qf1_state.params, qf1_state.target_params, args.tau)
+            target_params=optax.incremental_update(
+                qf1_state.params, qf1_state.target_params, args.tau
+            )
         )
         return actor_state, qf1_state, actor_loss_value
 
@@ -222,14 +243,19 @@ if __name__ == "__main__":
     for global_step in range(args.total_timesteps):
         # ALGO LOGIC: put action logic here
         if global_step < args.learning_starts:
-            actions = np.array([envs.single_action_space.sample() for _ in range(envs.num_envs)])
+            actions = np.array(
+                [envs.single_action_space.sample() for _ in range(envs.num_envs)]
+            )
         else:
             actions = actor.apply(actor_state.params, obs)
             actions = np.array(
                 [
-                    (jax.device_get(actions)[0] + np.random.normal(0, actor.action_scale * args.exploration_noise)[0]).clip(
-                        envs.single_action_space.low, envs.single_action_space.high
-                    )
+                    (
+                        jax.device_get(actions)[0]
+                        + np.random.normal(
+                            0, actor.action_scale * args.exploration_noise
+                        )[0]
+                    ).clip(envs.single_action_space.low, envs.single_action_space.high)
                 ]
             )
 
@@ -238,17 +264,25 @@ if __name__ == "__main__":
 
         # TRY NOT TO MODIFY: record rewards for plotting purposes
         if "final_info" in infos:
+            if isinstance(infos["final_info"], dict):
+                infos["final_info"] = [infos["final_info"]]
             for info in infos["final_info"]:
-                print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
-                writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
-                writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
+                print(
+                    f"global_step={global_step}, episodic_return={info['episode']['r']}"
+                )
+                writer.add_scalar(
+                    "charts/episodic_return", info["episode"]["r"], global_step
+                )
+                writer.add_scalar(
+                    "charts/episodic_length", info["episode"]["l"], global_step
+                )
                 break
 
         # TRY NOT TO MODIFY: save data to replay buffer; handle `final_observation`
         real_next_obs = next_obs.copy()
         for idx, trunc in enumerate(truncations):
             if trunc:
-                real_next_obs[idx] = infos["final_observation"][idx]
+                real_next_obs[idx] = infos["final_obs"][idx]
         rb.add(obs, real_next_obs, actions, rewards, terminations, infos)
 
         # TRY NOT TO MODIFY: CRUCIAL step easy to overlook
@@ -277,9 +311,15 @@ if __name__ == "__main__":
             if global_step % 100 == 0:
                 writer.add_scalar("losses/qf1_loss", qf1_loss_value.item(), global_step)
                 writer.add_scalar("losses/qf1_values", qf1_a_values.item(), global_step)
-                writer.add_scalar("losses/actor_loss", actor_loss_value.item(), global_step)
+                writer.add_scalar(
+                    "losses/actor_loss", actor_loss_value.item(), global_step
+                )
                 print("SPS:", int(global_step / (time.time() - start_time)))
-                writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
+                writer.add_scalar(
+                    "charts/SPS",
+                    int(global_step / (time.time() - start_time)),
+                    global_step,
+                )
 
     if args.save_model:
         model_path = f"runs/{run_name}/{args.exp_name}.cleanrl_model"
@@ -312,7 +352,30 @@ if __name__ == "__main__":
 
             repo_name = f"{args.env_id}-{args.exp_name}-seed{args.seed}"
             repo_id = f"{args.hf_entity}/{repo_name}" if args.hf_entity else repo_name
-            push_to_hub(args, episodic_returns, repo_id, "DDPG", f"runs/{run_name}", f"videos/{run_name}-eval")
+            push_to_hub(
+                args,
+                episodic_returns,
+                repo_id,
+                "DDPG",
+                f"runs/{run_name}",
+                f"videos/{run_name}-eval",
+            )
 
     envs.close()
     writer.close()
+
+    video_candidates = [
+        f for f in os.listdir(f"videos/{run_name}") if f.endswith(".mp4")
+    ]
+    # is in format rl-video-episode-episode_id.mp4
+    # sort by episode_id
+    video_candidates.sort(key=lambda x: int(x.split("-")[-1].split(".")[0]))
+    for video in video_candidates:
+        episode_id = int(video.split("-")[-1].split(".")[0])
+        wandb.log(
+            {
+                f"video/{episode_id}": wandb.Video(
+                    f"videos/{run_name}/{video}", format="mp4"
+                )
+            }
+        )

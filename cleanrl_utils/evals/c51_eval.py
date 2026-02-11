@@ -30,16 +30,22 @@ def evaluate(
     episodic_returns = []
     while len(episodic_returns) < eval_episodes:
         if random.random() < epsilon:
-            actions = np.array([envs.single_action_space.sample() for _ in range(envs.num_envs)])
+            actions = np.array(
+                [envs.single_action_space.sample() for _ in range(envs.num_envs)]
+            )
         else:
             actions, _ = model.get_action(torch.Tensor(obs).to(device))
             actions = actions.cpu().numpy()
         next_obs, _, _, _, infos = envs.step(actions)
         if "final_info" in infos:
+            if isinstance(infos["final_info"], dict):
+                infos["final_info"] = [infos["final_info"]]
             for info in infos["final_info"]:
                 if "episode" not in info:
                     continue
-                print(f"eval_episode={len(episodic_returns)}, episodic_return={info['episode']['r']}")
+                print(
+                    f"eval_episode={len(episodic_returns)}, episodic_return={info['episode']['r']}"
+                )
                 episodic_returns += [info["episode"]["r"]]
         obs = next_obs
 
@@ -51,7 +57,9 @@ if __name__ == "__main__":
 
     from cleanrl.c51 import QNetwork, make_env
 
-    model_path = hf_hub_download(repo_id="cleanrl/CartPole-v1-c51-seed1", filename="c51.cleanrl_model")
+    model_path = hf_hub_download(
+        repo_id="cleanrl/CartPole-v1-c51-seed1", filename="c51.cleanrl_model"
+    )
     evaluate(
         model_path,
         make_env,

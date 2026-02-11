@@ -128,7 +128,9 @@ class NoisyLinear(nn.Module):
 
         self.weight_mu = nn.Parameter(torch.FloatTensor(out_features, in_features))
         self.weight_sigma = nn.Parameter(torch.FloatTensor(out_features, in_features))
-        self.register_buffer("weight_epsilon", torch.FloatTensor(out_features, in_features))
+        self.register_buffer(
+            "weight_epsilon", torch.FloatTensor(out_features, in_features)
+        )
         self.bias_mu = nn.Parameter(torch.FloatTensor(out_features))
         self.bias_sigma = nn.Parameter(torch.FloatTensor(out_features))
         self.register_buffer("bias_epsilon", torch.FloatTensor(out_features))
@@ -179,10 +181,14 @@ class NoisyDuelingDistributionalNetwork(nn.Module):
         )
         conv_output_size = 3136
 
-        self.value_head = nn.Sequential(NoisyLinear(conv_output_size, 512), nn.ReLU(), NoisyLinear(512, n_atoms))
+        self.value_head = nn.Sequential(
+            NoisyLinear(conv_output_size, 512), nn.ReLU(), NoisyLinear(512, n_atoms)
+        )
 
         self.advantage_head = nn.Sequential(
-            NoisyLinear(conv_output_size, 512), nn.ReLU(), NoisyLinear(512, n_atoms * self.n_actions)
+            NoisyLinear(conv_output_size, 512),
+            nn.ReLU(),
+            NoisyLinear(512, n_atoms * self.n_actions),
         )
 
     def forward(self, x):
@@ -203,7 +209,16 @@ class NoisyDuelingDistributionalNetwork(nn.Module):
 
 
 PrioritizedBatch = collections.namedtuple(
-    "PrioritizedBatch", ["observations", "actions", "rewards", "next_observations", "dones", "indices", "weights"]
+    "PrioritizedBatch",
+    [
+        "observations",
+        "actions",
+        "rewards",
+        "next_observations",
+        "dones",
+        "indices",
+        "weights",
+    ],
 )
 
 
@@ -251,7 +266,9 @@ class MinSegmentTree:
     def _propagate(self, idx):
         parent = (idx - 1) // 2
         while parent >= 0:
-            self.tree[parent] = min(self.tree[parent * 2 + 1], self.tree[parent * 2 + 2])
+            self.tree[parent] = min(
+                self.tree[parent * 2 + 1], self.tree[parent * 2 + 2]
+            )
             parent = (parent - 1) // 2
 
     def update(self, idx, value):
@@ -264,7 +281,9 @@ class MinSegmentTree:
 
 
 class PrioritizedReplayBuffer:
-    def __init__(self, capacity, obs_shape, device, n_step, gamma, alpha=0.6, beta=0.4, eps=1e-6):
+    def __init__(
+        self, capacity, obs_shape, device, n_step, gamma, alpha=0.6, beta=0.4, eps=1e-6
+    ):
         self.capacity = capacity
         self.device = device
         self.n_step = n_step
@@ -343,13 +362,23 @@ class PrioritizedReplayBuffer:
 
         samples = {
             "observations": torch.from_numpy(self.buffer_obs[indices]).to(self.device),
-            "actions": torch.from_numpy(self.buffer_actions[indices]).to(self.device).unsqueeze(1),
-            "rewards": torch.from_numpy(self.buffer_rewards[indices]).to(self.device).unsqueeze(1),
-            "next_observations": torch.from_numpy(self.buffer_next_obs[indices]).to(self.device),
-            "dones": torch.from_numpy(self.buffer_dones[indices]).to(self.device).unsqueeze(1),
+            "actions": torch.from_numpy(self.buffer_actions[indices])
+            .to(self.device)
+            .unsqueeze(1),
+            "rewards": torch.from_numpy(self.buffer_rewards[indices])
+            .to(self.device)
+            .unsqueeze(1),
+            "next_observations": torch.from_numpy(self.buffer_next_obs[indices]).to(
+                self.device
+            ),
+            "dones": torch.from_numpy(self.buffer_dones[indices])
+            .to(self.device)
+            .unsqueeze(1),
         }
 
-        probs = np.array([self.sum_tree.tree[idx + self.capacity - 1] for idx in indices])
+        probs = np.array(
+            [self.sum_tree.tree[idx + self.capacity - 1] for idx in indices]
+        )
         weights = (self.size * probs / p_total) ** -self.beta
         weights = weights / weights.max()
         samples["weights"] = torch.from_numpy(weights).to(self.device).unsqueeze(1)
@@ -380,13 +409,14 @@ if __name__ == "__main__":
             sync_tensorboard=True,
             config=vars(args),
             name=run_name,
-            monitor_gym=True,
+            monitor_gym=False,
             save_code=True,
         )
     writer = SummaryWriter(f"runs/{run_name}")
     writer.add_text(
         "hyperparameters",
-        "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
+        "|param|value|\n|-|-|\n%s"
+        % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
     )
 
     # TRY NOT TO MODIFY: seeding
@@ -399,13 +429,23 @@ if __name__ == "__main__":
 
     # env setup
     envs = gym.vector.SyncVectorEnv(
-        [make_env(args.env_id, args.seed + i, i, args.capture_video, run_name) for i in range(args.num_envs)]
+        [
+            make_env(args.env_id, args.seed + i, i, args.capture_video, run_name)
+            for i in range(args.num_envs)
+        ],
+        autoreset_mode=gym.vector.AutoresetMode.SAME_STEP,
     )
-    assert isinstance(envs.single_action_space, gym.spaces.Discrete), "only discrete action space is supported"
+    assert isinstance(
+        envs.single_action_space, gym.spaces.Discrete
+    ), "only discrete action space is supported"
 
-    q_network = NoisyDuelingDistributionalNetwork(envs, args.n_atoms, args.v_min, args.v_max).to(device)
+    q_network = NoisyDuelingDistributionalNetwork(
+        envs, args.n_atoms, args.v_min, args.v_max
+    ).to(device)
     optimizer = optim.Adam(q_network.parameters(), lr=args.learning_rate, eps=1.5e-4)
-    target_network = NoisyDuelingDistributionalNetwork(envs, args.n_atoms, args.v_min, args.v_max).to(device)
+    target_network = NoisyDuelingDistributionalNetwork(
+        envs, args.n_atoms, args.v_min, args.v_max
+    ).to(device)
     target_network.load_state_dict(q_network.state_dict())
 
     rb = PrioritizedReplayBuffer(
@@ -426,7 +466,9 @@ if __name__ == "__main__":
     for global_step in range(args.total_timesteps):
         # anneal PER beta to 1
         rb.beta = min(
-            1.0, args.prioritized_replay_beta + global_step * (1.0 - args.prioritized_replay_beta) / args.total_timesteps
+            1.0,
+            args.prioritized_replay_beta
+            + global_step * (1.0 - args.prioritized_replay_beta) / args.total_timesteps,
         )
 
         # ALGO LOGIC: put action logic here
@@ -439,17 +481,25 @@ if __name__ == "__main__":
         next_obs, rewards, terminations, truncations, infos = envs.step(actions)
 
         if "final_info" in infos:
+            if isinstance(infos["final_info"], dict):
+                infos["final_info"] = [infos["final_info"]]
             for info in infos["final_info"]:
                 if info and "episode" in info:
-                    print(f"global_step={global_step}, episodic_return={info['episode']['r']}")
-                    writer.add_scalar("charts/episodic_return", info["episode"]["r"], global_step)
-                    writer.add_scalar("charts/episodic_length", info["episode"]["l"], global_step)
+                    print(
+                        f"global_step={global_step}, episodic_return={info['episode']['r']}"
+                    )
+                    writer.add_scalar(
+                        "charts/episodic_return", info["episode"]["r"], global_step
+                    )
+                    writer.add_scalar(
+                        "charts/episodic_length", info["episode"]["l"], global_step
+                    )
 
         # TRY NOT TO MODIFY: save data to reply buffer; handle `final_observation`
         real_next_obs = next_obs.copy()
         for idx, trunc in enumerate(truncations):
             if trunc:
-                real_next_obs[idx] = infos["final_observation"][idx]
+                real_next_obs[idx] = infos["final_obs"][idx]
         rb.add(obs, actions, rewards, real_next_obs, terminations)
 
         # TRY NOT TO MODIFY: CRUCIAL step easy to overlook
@@ -464,19 +514,31 @@ if __name__ == "__main__":
                 data = rb.sample(args.batch_size)
 
                 with torch.no_grad():
-                    next_dist = target_network(data.next_observations)  # [B, num_actions, n_atoms]
+                    next_dist = target_network(
+                        data.next_observations
+                    )  # [B, num_actions, n_atoms]
                     support = target_network.support  # [n_atoms]
-                    next_q_values = torch.sum(next_dist * support, dim=2)  # [B, num_actions]
+                    next_q_values = torch.sum(
+                        next_dist * support, dim=2
+                    )  # [B, num_actions]
 
                     # double q-learning
-                    next_dist_online = q_network(data.next_observations)  # [B, num_actions, n_atoms]
-                    next_q_online = torch.sum(next_dist_online * support, dim=2)  # [B, num_actions]
+                    next_dist_online = q_network(
+                        data.next_observations
+                    )  # [B, num_actions, n_atoms]
+                    next_q_online = torch.sum(
+                        next_dist_online * support, dim=2
+                    )  # [B, num_actions]
                     best_actions = torch.argmax(next_q_online, dim=1)  # [B]
-                    next_pmfs = next_dist[torch.arange(args.batch_size), best_actions]  # [B, n_atoms]
+                    next_pmfs = next_dist[
+                        torch.arange(args.batch_size), best_actions
+                    ]  # [B, n_atoms]
 
                     # compute the n-step Bellman update.
                     gamma_n = args.gamma**args.n_step
-                    next_atoms = data.rewards + gamma_n * support * (1 - data.dones.float())
+                    next_atoms = data.rewards + gamma_n * support * (
+                        1 - data.dones.float()
+                    )
                     tz = next_atoms.clamp(q_network.v_min, q_network.v_max)
 
                     # projection
@@ -487,7 +549,9 @@ if __name__ == "__main__":
 
                     # (l == u).float() handles the case where bj is exactly an integer
                     # example bj = 1, then the upper ceiling should be uj= 2, and lj= 1
-                    d_m_l = (u.float() + (l == b).float() - b) * next_pmfs  # [B, n_atoms]
+                    d_m_l = (
+                        u.float() + (l == b).float() - b
+                    ) * next_pmfs  # [B, n_atoms]
                     d_m_u = (b - l) * next_pmfs  # [B, n_atoms]
 
                     target_pmfs = torch.zeros_like(next_pmfs)
@@ -496,7 +560,9 @@ if __name__ == "__main__":
                         target_pmfs[i].index_add_(0, u[i].long(), d_m_u[i])
 
                 dist = q_network(data.observations)  # [B, num_actions, n_atoms]
-                pred_dist = dist.gather(1, data.actions.unsqueeze(-1).expand(-1, -1, args.n_atoms)).squeeze(1)
+                pred_dist = dist.gather(
+                    1, data.actions.unsqueeze(-1).expand(-1, -1, args.n_atoms)
+                ).squeeze(1)
                 log_pred = torch.log(pred_dist.clamp(min=1e-5, max=1 - 1e-5))
 
                 loss_per_sample = -(target_pmfs * log_pred).sum(dim=1)
@@ -509,7 +575,9 @@ if __name__ == "__main__":
                 if global_step % 100 == 0:
                     writer.add_scalar("losses/td_loss", loss.item(), global_step)
                     q_values = (pred_dist * q_network.support).sum(dim=1)  # [B]
-                    writer.add_scalar("losses/q_values", q_values.mean().item(), global_step)
+                    writer.add_scalar(
+                        "losses/q_values", q_values.mean().item(), global_step
+                    )
                     sps = int(global_step / (time.time() - start_time))
                     print("SPS:", sps)
                     writer.add_scalar("charts/SPS", sps, global_step)
@@ -522,8 +590,28 @@ if __name__ == "__main__":
 
             # update target network
             if global_step % args.target_network_frequency == 0:
-                for target_param, param in zip(target_network.parameters(), q_network.parameters()):
-                    target_param.data.copy_(args.tau * param.data + (1.0 - args.tau) * target_param.data)
+                for target_param, param in zip(
+                    target_network.parameters(), q_network.parameters()
+                ):
+                    target_param.data.copy_(
+                        args.tau * param.data + (1.0 - args.tau) * target_param.data
+                    )
 
     envs.close()
     writer.close()
+
+    video_candidates = [
+        f for f in os.listdir(f"videos/{run_name}") if f.endswith(".mp4")
+    ]
+    # is in format rl-video-episode-episode_id.mp4
+    # sort by episode_id
+    video_candidates.sort(key=lambda x: int(x.split("-")[-1].split(".")[0]))
+    for video in video_candidates:
+        episode_id = int(video.split("-")[-1].split(".")[0])
+        wandb.log(
+            {
+                f"video/{episode_id}": wandb.Video(
+                    f"videos/{run_name}/{video}", format="mp4"
+                )
+            }
+        )

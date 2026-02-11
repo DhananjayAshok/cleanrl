@@ -185,13 +185,14 @@ if __name__ == "__main__":
             sync_tensorboard=True,
             config=vars(args),
             name=run_name,
-            monitor_gym=True,
+            monitor_gym=False,
             save_code=True,
         )
     writer = SummaryWriter(f"runs/{run_name}")
     writer.add_text(
         "hyperparameters",
-        "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
+        "|param|value|\n|-|-|\n%s"
+        % ("\n".join([f"|{key}|{value}|" for key, value in vars(args).items()])),
     )
 
     # TRY NOT TO MODIFY: seeding
@@ -216,14 +217,20 @@ if __name__ == "__main__":
     envs.single_action_space = envs.action_space
     envs.single_observation_space = envs.observation_space
     envs = RecordEpisodeStatistics(envs)
-    assert isinstance(envs.action_space, gym.spaces.Discrete), "only discrete action space is supported"
+    assert isinstance(
+        envs.action_space, gym.spaces.Discrete
+    ), "only discrete action space is supported"
 
     q_network = QNetwork(envs).to(device)
     optimizer = optim.RAdam(q_network.parameters(), lr=args.learning_rate)
 
     # ALGO Logic: Storage setup
-    obs = torch.zeros((args.num_steps, args.num_envs) + envs.single_observation_space.shape).to(device)
-    actions = torch.zeros((args.num_steps, args.num_envs) + envs.single_action_space.shape).to(device)
+    obs = torch.zeros(
+        (args.num_steps, args.num_envs) + envs.single_observation_space.shape
+    ).to(device)
+    actions = torch.zeros(
+        (args.num_steps, args.num_envs) + envs.single_action_space.shape
+    ).to(device)
     rewards = torch.zeros((args.num_steps, args.num_envs)).to(device)
     dones = torch.zeros((args.num_steps, args.num_envs)).to(device)
     values = torch.zeros((args.num_steps, args.num_envs)).to(device)
@@ -236,8 +243,12 @@ if __name__ == "__main__":
     next_done = torch.zeros(args.num_envs).to(device)
 
     next_lstm_state = (
-        torch.zeros(q_network.lstm.num_layers, args.num_envs, q_network.lstm.hidden_size).to(device),
-        torch.zeros(q_network.lstm.num_layers, args.num_envs, q_network.lstm.hidden_size).to(device),
+        torch.zeros(
+            q_network.lstm.num_layers, args.num_envs, q_network.lstm.hidden_size
+        ).to(device),
+        torch.zeros(
+            q_network.lstm.num_layers, args.num_envs, q_network.lstm.hidden_size
+        ).to(device),
     )  # hidden and cell states (see https://youtu.be/8HyCNIVRbSU)
 
     for iteration in range(1, args.num_iterations + 1):
@@ -254,13 +265,24 @@ if __name__ == "__main__":
             obs[step] = next_obs
             dones[step] = next_done
 
-            epsilon = linear_schedule(args.start_e, args.end_e, args.exploration_fraction * args.total_timesteps, global_step)
+            epsilon = linear_schedule(
+                args.start_e,
+                args.end_e,
+                args.exploration_fraction * args.total_timesteps,
+                global_step,
+            )
 
-            random_actions = torch.randint(0, envs.single_action_space.n, (args.num_envs,)).to(device)
+            random_actions = torch.randint(
+                0, envs.single_action_space.n, (args.num_envs,)
+            ).to(device)
             with torch.no_grad():
-                q_values, next_lstm_state = q_network(next_obs, next_lstm_state, next_done)
+                q_values, next_lstm_state = q_network(
+                    next_obs, next_lstm_state, next_done
+                )
                 max_actions = torch.argmax(q_values, dim=1)
-                values[step] = q_values[torch.arange(args.num_envs), max_actions].flatten()
+                values[step] = q_values[
+                    torch.arange(args.num_envs), max_actions
+                ].flatten()
 
             explore = torch.rand((args.num_envs,)).to(device) < epsilon
             action = torch.where(explore, random_actions, max_actions)
@@ -269,22 +291,36 @@ if __name__ == "__main__":
             # TRY NOT TO MODIFY: execute the game and log data.
             next_obs, reward, next_done, info = envs.step(action.cpu().numpy())
             rewards[step] = torch.tensor(reward).to(device).view(-1)
-            next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(next_done).to(device)
+            next_obs, next_done = torch.Tensor(next_obs).to(device), torch.Tensor(
+                next_done
+            ).to(device)
 
             for idx, d in enumerate(next_done):
                 if d and info["lives"][idx] == 0:
-                    print(f"global_step={global_step}, episodic_return={info['r'][idx]}")
+                    print(
+                        f"global_step={global_step}, episodic_return={info['r'][idx]}"
+                    )
                     avg_returns.append(info["r"][idx])
-                    writer.add_scalar("charts/avg_episodic_return", np.average(avg_returns), global_step)
-                    writer.add_scalar("charts/episodic_return", info["r"][idx], global_step)
-                    writer.add_scalar("charts/episodic_length", info["l"][idx], global_step)
+                    writer.add_scalar(
+                        "charts/avg_episodic_return",
+                        np.average(avg_returns),
+                        global_step,
+                    )
+                    writer.add_scalar(
+                        "charts/episodic_return", info["r"][idx], global_step
+                    )
+                    writer.add_scalar(
+                        "charts/episodic_length", info["l"][idx], global_step
+                    )
 
         # Compute Q(lambda) targets
         with torch.no_grad():
             returns = torch.zeros_like(rewards).to(device)
             for t in reversed(range(args.num_steps)):
                 if t == args.num_steps - 1:
-                    next_value, _ = torch.max(q_network(next_obs, next_lstm_state, next_done)[0], dim=-1)
+                    next_value, _ = torch.max(
+                        q_network(next_obs, next_lstm_state, next_done)[0], dim=-1
+                    )
                     nextnonterminal = 1.0 - next_done
                     returns[t] = rewards[t] + args.gamma * next_value * nextnonterminal
                 else:
@@ -292,7 +328,12 @@ if __name__ == "__main__":
                     next_value = values[t + 1]
                     returns[t] = (
                         rewards[t]
-                        + args.gamma * (args.q_lambda * returns[t + 1] + (1 - args.q_lambda) * next_value) * nextnonterminal
+                        + args.gamma
+                        * (
+                            args.q_lambda * returns[t + 1]
+                            + (1 - args.q_lambda) * next_value
+                        )
+                        * nextnonterminal
                     )
 
         # flatten the batch
@@ -313,14 +354,21 @@ if __name__ == "__main__":
             for start in range(0, args.num_envs, envsperbatch):
                 end = start + envsperbatch
                 mbenvinds = envinds[start:end]
-                mb_inds = flatinds[:, mbenvinds].ravel()  # be really careful about the index
+                mb_inds = flatinds[
+                    :, mbenvinds
+                ].ravel()  # be really careful about the index
 
                 old_val, _ = q_network(
                     b_obs[mb_inds],
-                    (initial_lstm_state[0][:, mbenvinds], initial_lstm_state[1][:, mbenvinds]),
+                    (
+                        initial_lstm_state[0][:, mbenvinds],
+                        initial_lstm_state[1][:, mbenvinds],
+                    ),
                     b_dones[mb_inds],
                 )
-                old_val = old_val.gather(1, b_actions[mb_inds].unsqueeze(-1).long()).squeeze()
+                old_val = old_val.gather(
+                    1, b_actions[mb_inds].unsqueeze(-1).long()
+                ).squeeze()
 
                 loss = F.mse_loss(b_returns[mb_inds], old_val)
 
@@ -333,7 +381,25 @@ if __name__ == "__main__":
         writer.add_scalar("losses/td_loss", loss, global_step)
         writer.add_scalar("losses/q_values", old_val.mean().item(), global_step)
         print("SPS:", int(global_step / (time.time() - start_time)))
-        writer.add_scalar("charts/SPS", int(global_step / (time.time() - start_time)), global_step)
+        writer.add_scalar(
+            "charts/SPS", int(global_step / (time.time() - start_time)), global_step
+        )
 
     envs.close()
     writer.close()
+
+    video_candidates = [
+        f for f in os.listdir(f"videos/{run_name}") if f.endswith(".mp4")
+    ]
+    # is in format rl-video-episode-episode_id.mp4
+    # sort by episode_id
+    video_candidates.sort(key=lambda x: int(x.split("-")[-1].split(".")[0]))
+    for video in video_candidates:
+        episode_id = int(video.split("-")[-1].split(".")[0])
+        wandb.log(
+            {
+                f"video/{episode_id}": wandb.Video(
+                    f"videos/{run_name}/{video}", format="mp4"
+                )
+            }
+        )

@@ -32,14 +32,22 @@ def evaluate(
         with torch.no_grad():
             actions = actor(torch.Tensor(obs).to(device))
             actions += torch.normal(0, actor.action_scale * exploration_noise)
-            actions = actions.cpu().numpy().clip(envs.single_action_space.low, envs.single_action_space.high)
+            actions = (
+                actions.cpu()
+                .numpy()
+                .clip(envs.single_action_space.low, envs.single_action_space.high)
+            )
 
         next_obs, _, _, _, infos = envs.step(actions)
         if "final_info" in infos:
+            if isinstance(infos["final_info"], dict):
+                infos["final_info"] = [infos["final_info"]]
             for info in infos["final_info"]:
                 if "episode" not in info:
                     continue
-                print(f"eval_episode={len(episodic_returns)}, episodic_return={info['episode']['r']}")
+                print(
+                    f"eval_episode={len(episodic_returns)}, episodic_return={info['episode']['r']}"
+                )
                 episodic_returns += [info["episode"]["r"]]
         obs = next_obs
 
@@ -52,7 +60,8 @@ if __name__ == "__main__":
     from cleanrl.ddpg_continuous_action import Actor, QNetwork, make_env
 
     model_path = hf_hub_download(
-        repo_id="cleanrl/HalfCheetah-v4-ddpg_continuous_action-seed1", filename="ddpg_continuous_action.cleanrl_model"
+        repo_id="cleanrl/HalfCheetah-v4-ddpg_continuous_action-seed1",
+        filename="ddpg_continuous_action.cleanrl_model",
     )
     evaluate(
         model_path,
