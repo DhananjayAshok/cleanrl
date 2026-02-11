@@ -84,6 +84,11 @@ class Args:
 
 
 def make_env(env_id, seed, idx, capture_video, run_name):
+    if env_id.startswith("poke_worlds:"):
+        from cleanrl_utils.poke_worlds import poke_worlds_make_env
+
+        return poke_worlds_make_env(env_id, seed, idx, capture_video, run_name)
+
     def thunk():
         if capture_video and idx == 0:
             env = gym.make(env_id, render_mode="rgb_array")
