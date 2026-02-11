@@ -390,18 +390,19 @@ if __name__ == "__main__":
 
     envs.close()
     writer.close()
-    video_candidates = [
-        f for f in os.listdir(f"videos/{run_name}") if f.endswith(".mp4")
-    ]
-    # is in format rl-video-episode-episode_id.mp4
-    # sort by episode_id
-    video_candidates.sort(key=lambda x: int(x.split("-")[-1].split(".")[0]))
-    for video in video_candidates:
-        episode_id = int(video.split("-")[-1].split(".")[0])
-        wandb.log(
-            {
-                f"video/{episode_id}": wandb.Video(
-                    f"videos/{run_name}/{video}", format="mp4"
-                )
-            }
-        )
+    if args.capture_video:
+        video_candidates = [
+            f for f in os.listdir(f"videos/{run_name}") if f.endswith(".mp4")
+        ]
+        # is in format rl-video-episode-episode_id.mp4
+        # sort by episode_id
+        video_candidates.sort(key=lambda x: int(x.split("-")[-1].split(".")[0]))
+        for video in video_candidates:
+            episode_id = int(video.split("-")[-1].split(".")[0])
+            wandb.log(
+                {
+                    f"video/{episode_id}": wandb.Video(
+                        f"videos/{run_name}/{video}", format="mp4"
+                    )
+                }
+            )

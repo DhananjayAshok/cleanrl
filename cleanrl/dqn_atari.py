@@ -21,6 +21,7 @@ from cleanrl_utils.atari_wrappers import (
     MaxAndSkipEnv,
     NoopResetEnv,
 )
+from cleanrl_utils.poke_worlds import get_poke_worlds_environment
 from cleanrl_utils.buffers import ReplayBuffer
 
 
@@ -81,12 +82,17 @@ class Args:
 
 
 def make_env(env_id, seed, idx, capture_video, run_name):
+    if env_id.startswith("poke_worlds:"):
+        make_env_fn = get_poke_worlds_environment
+    else:
+        make_env_fn = gym.make
+
     def thunk():
         if capture_video and idx == 0:
-            env = gym.make(env_id, render_mode="rgb_array")
+            env = make_env_fn(env_id, render_mode="rgb_array")
             env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
         else:
-            env = gym.make(env_id)
+            env = make_env_fn(env_id)
         env = gym.wrappers.RecordEpisodeStatistics(env)
 
         env = NoopResetEnv(env, noop_max=30)

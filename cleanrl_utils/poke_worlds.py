@@ -52,7 +52,7 @@ def parse_pokeworlds_id_string(id_string):
     return game, environment_variant, controller_variant, max_steps
 
 
-def get_poke_worlds_environment(id_string):
+def get_poke_worlds_environment(id_string, render_mode=None):
     game, environment_variant, controller_variant, max_steps = (
         parse_pokeworlds_id_string(id_string)
     )
@@ -65,4 +65,6 @@ def get_poke_worlds_environment(id_string):
         save_video=False,
     )
     env = OneOfToDiscreteWrapper(env)
+    if render_mode is not None:
+        env.set_render_mode(render_mode)
     return env
