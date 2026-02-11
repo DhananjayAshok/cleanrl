@@ -159,7 +159,8 @@ if __name__ == "__main__":
 
     # env setup
     envs = gym.vector.SyncVectorEnv(
-        [make_env(args.env_id, args.seed, 0, args.capture_video, run_name)]
+        [make_env(args.env_id, args.seed, 0, args.capture_video, run_name)],
+        autoreset_mode=gym.vector.AutoresetMode.SAME_STEP,
     )
     assert isinstance(
         envs.single_action_space, gym.spaces.Box
