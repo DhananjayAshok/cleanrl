@@ -177,7 +177,7 @@ See [related docs](/rl-algorithms/ppo/#explanation-of-the-logged-metrics) for `p
 1. The Use of `FireResetEnv` (:material-github: [common/atari_wrappers.py#L41](https://github.com/openai/baselines/blob/ea25b9e8b234e6ee1bca43083f8f3cf974143998/baselines/common/atari_wrappers.py#L41)) 
 1. The Use of `WarpFrame` (Image transformation) [common/atari_wrappers.py#L134](https://github.com/openai/baselines/blob/ea25b9e8b234e6ee1bca43083f8f3cf974143998/baselines/common/atari_wrappers.py#L134) 
 1. The Use of `ClipRewardEnv` (:material-github: [common/atari_wrappers.py#L125](https://github.com/openai/baselines/blob/ea25b9e8b234e6ee1bca43083f8f3cf974143998/baselines/common/atari_wrappers.py#L125)) 
-1. The Use of `FrameStack` (:material-github: [common/atari_wrappers.py#L188](https://github.com/openai/baselines/blob/ea25b9e8b234e6ee1bca43083f8f3cf974143998/baselines/common/atari_wrappers.py#L188)) 
+1. The Use of `FrameStackObservation` (:material-github: [common/atari_wrappers.py#L188](https://github.com/openai/baselines/blob/ea25b9e8b234e6ee1bca43083f8f3cf974143998/baselines/common/atari_wrappers.py#L188)) 
 1. Shared Nature-CNN network for the policy and value functions (:material-github: [common/policies.py#L157](https://github.com/openai/baselines/blob/ea25b9e8b234e6ee1bca43083f8f3cf974143998/baselines/common/policies.py#L157), [common/models.py#L15-L26](https://github.com/openai/baselines/blob/ea25b9e8b234e6ee1bca43083f8f3cf974143998/baselines/common/models.py#L15-L26))
 1. Scaling the Images to Range [0, 1] (:material-github: [common/models.py#L19](https://github.com/openai/baselines/blob/9b68103b737ac46bc201dfb3121cfa5df2127e53/baselines/common/models.py#L19))
 
@@ -448,7 +448,7 @@ See [related docs](/rl-algorithms/ppo/#explanation-of-the-logged-metrics) for `p
 4. Prepare sequential rollouts in mini-batches (:material-github: [a2c/utils.py#L81](https://github.com/openai/baselines/blob/ea25b9e8b234e6ee1bca43083f8f3cf974143998/baselines/a2c/utils.py#L81))
 5. Reconstruct LSTM states during training (:material-github: [a2c/utils.py#L81](https://github.com/openai/baselines/blob/ea25b9e8b234e6ee1bca43083f8f3cf974143998/baselines/a2c/utils.py#L81))
 
-To help test out the memory, we remove the 4 stacked frames from the observation (i.e., using `env = gym.wrappers.FrameStack(env, 1)` instead of `env = gym.wrappers.FrameStack(env, 4)` like in `ppo_atari.py` )
+To help test out the memory, we remove the 4 stacked frames from the observation (i.e., using `env = gym.wrappers.FrameStackObservation(env, 1)` instead of `env = gym.wrappers.FrameStackObservation(env, 4)` like in `ppo_atari.py` )
 
 
 
@@ -1094,8 +1094,8 @@ See other logged metrics in the [related docs](/rl-algorithms/ppo/#explanation-o
     -    env = FireResetEnv(env)
     -env = ClipRewardEnv(env)
     -env = gym.wrappers.ResizeObservation(env, (84, 84))
-    -env = gym.wrappers.GrayScaleObservation(env)
-    -env = gym.wrappers.FrameStack(env, 4)
+    -env = gym.wrappers.GrayscaleObservation(env)
+    -env = gym.wrappers.FrameStackObservation(env, 4)
     +env = importlib.import_module(f"pettingzoo.atari.{args.env_id}").parallel_env()
     +env = ss.max_observation_v0(env, 2)
     +env = ss.frame_skip_v0(env, 4)
