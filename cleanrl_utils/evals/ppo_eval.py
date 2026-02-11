@@ -16,7 +16,8 @@ def evaluate(
     gamma: float = 0.99,
 ):
     envs = gym.vector.SyncVectorEnv(
-        [make_env(env_id, 0, capture_video, run_name, gamma)]
+        [make_env(env_id, 0, capture_video, run_name, gamma)],
+        autoreset_mode=gym.vector.AutoresetMode.SAME_STEP,
     )
     agent = Model(envs).to(device)
     agent.load_state_dict(torch.load(model_path, map_location=device))
