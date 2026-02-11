@@ -85,7 +85,6 @@ def poke_worlds_make_env(env_id, seed, idx, capture_video, run_name):
             env = get_poke_worlds_environment(env_id)
         env = gym.wrappers.RecordEpisodeStatistics(env)
         env = gym.wrappers.ResizeObservation(env, (84, 84))
-        env = gym.wrappers.GrayscaleObservation(env)
         env = gym.wrappers.FrameStackObservation(env, 4)
 
         if seed is not None:
