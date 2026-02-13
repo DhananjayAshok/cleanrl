@@ -43,6 +43,10 @@ class Args:
     """the entity (team) of wandb's project"""
     capture_video: bool = False
     """whether to capture videos of the agent performances (check out `videos` folder)"""
+    save_model: bool = False
+    """whether to save model into the `runs/{run_name}` folder"""
+    model_save_path: str | None = None
+    """custom path to save the model (overrides default `runs/{run_name}/{exp_name}.cleanrl_model`)"""
 
     # Algorithm specific arguments
     env_id: str = "BeamRiderNoFrameskip-v4"
@@ -214,9 +218,9 @@ if __name__ == "__main__":
         [make_env(args.env_id, args.seed, 0, args.capture_video, run_name)],
         autoreset_mode=gym.vector.AutoresetMode.SAME_STEP,
     )
-    assert isinstance(
-        envs.single_action_space, gym.spaces.Discrete
-    ), "only discrete action space is supported"
+    assert isinstance(envs.single_action_space, gym.spaces.Discrete), (
+        "only discrete action space is supported"
+    )
 
     actor = Actor(envs).to(device)
     qf1 = SoftQNetwork(envs).to(device)
@@ -395,6 +399,18 @@ if __name__ == "__main__":
 
     envs.close()
     writer.close()
+
+    if args.save_model:
+        model_path = (
+            args.model_save_path
+            if args.model_save_path
+            else f"runs/{run_name}/{args.exp_name}.cleanrl_model"
+        )
+        if not model_path.endswith(".pt"):
+            model_path = os.path.join(model_path, "model.pt")
+        os.makedirs(os.path.dirname(model_path), exist_ok=True)
+        torch.save(actor.state_dict(), model_path)
+        print(f"model saved to {model_path}")
 
     if args.capture_video:
         video_candidates = [
