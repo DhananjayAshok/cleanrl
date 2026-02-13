@@ -1,4 +1,5 @@
 import argparse
+import torch
 
 from huggingface_hub import hf_hub_download
 
@@ -46,7 +47,10 @@ if __name__ == "__main__":
         make_env,
         args.env_id,
         eval_episodes=args.eval_episodes,
-        run_name=f"eval",
+        run_name=f"eval/{args.env_id}/{args.exp_name}/",
         Model=Model,
+        device=(
+            torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+        ),
         capture_video=args.capture_video,
     )
