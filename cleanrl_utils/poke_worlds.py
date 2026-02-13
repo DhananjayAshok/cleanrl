@@ -76,7 +76,7 @@ def get_poke_worlds_environment(id_string, render_mode=None):
     return env
 
 
-def poke_worlds_make_env(env_id, seed, idx, capture_video, run_name):
+def poke_worlds_make_env(env_id, seed, idx, capture_video, run_name, gamma=0.99):
     def thunk():
         if capture_video and idx == 0:
             env = get_poke_worlds_environment(env_id, render_mode="rgb_array")
@@ -86,7 +86,7 @@ def poke_worlds_make_env(env_id, seed, idx, capture_video, run_name):
         env = gym.wrappers.RecordEpisodeStatistics(env)
         env = gym.wrappers.ResizeObservation(env, (84, 84))
         env = gym.wrappers.FrameStackObservation(env, 4)
-        env = gym.wrappers.NormalizeReward(env)
+        env = gym.wrappers.NormalizeReward(env, gamma=gamma)
 
         if seed is not None:
             env.action_space.seed(seed)

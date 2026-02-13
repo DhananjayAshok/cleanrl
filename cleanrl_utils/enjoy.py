@@ -16,6 +16,8 @@ def parse_args():
         help="the user or org name of the model repository from the Hugging Face Hub")
     parser.add_argument("--hf-repository", type=str, default="",
         help="the huggingface repo (e.g., cleanrl/BreakoutNoFrameskip-v4-dqn_atari-seed1)")
+    parser.add_argument("--model_path", type=str, default="",
+                        help="the path to the saved model (e.g., ./dqn_atari_model.pth)")
     parser.add_argument("--env-id", type=str, default="BreakoutNoFrameskip-v4",
         help="the id of the environment")
     parser.add_argument("--eval-episodes", type=int, default=10,
@@ -28,10 +30,17 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
     Model, make_env, evaluate = MODELS[args.exp_name]()
-    if not args.hf_repository:
-        args.hf_repository = f"{args.hf_entity}/{args.env_id}-{args.exp_name}-seed{args.seed}"
-    print(f"loading saved models from {args.hf_repository}...")
-    model_path = hf_hub_download(repo_id=args.hf_repository, filename=f"{args.exp_name}.cleanrl_model")
+    if args.model_path:
+        model_path = args.model_path
+    else:
+        if not args.hf_repository:
+            args.hf_repository = (
+                f"{args.hf_entity}/{args.env_id}-{args.exp_name}-seed{args.seed}"
+            )
+        print(f"loading saved models from {args.hf_repository}...")
+        model_path = hf_hub_download(
+            repo_id=args.hf_repository, filename=f"{args.exp_name}.cleanrl_model"
+        )
     evaluate(
         model_path,
         make_env,

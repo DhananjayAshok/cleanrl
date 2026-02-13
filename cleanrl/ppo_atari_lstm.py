@@ -87,11 +87,13 @@ class Args:
     """the number of iterations (computed in runtime)"""
 
 
-def make_env(env_id, idx, capture_video, run_name):
+def make_env(env_id, idx, capture_video, run_name, gamma=0.99):
     if env_id.startswith("poke_worlds:"):
         from cleanrl_utils.poke_worlds import poke_worlds_make_env
 
-        return poke_worlds_make_env(env_id, None, idx, capture_video, run_name)
+        return poke_worlds_make_env(
+            env_id, None, idx, capture_video, run_name, gamma=gamma
+        )
 
     def thunk():
         if capture_video and idx == 0:

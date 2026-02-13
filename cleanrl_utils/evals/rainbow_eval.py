@@ -13,6 +13,9 @@ def evaluate(
     eval_episodes: int,
     run_name: str,
     Model: torch.nn.Module,
+    n_atoms: int = 51,
+    v_min: float = -10.0,
+    v_max: float = 10.0,
     device: torch.device = torch.device("cpu"),
     capture_video: bool = True,
 ):
@@ -20,14 +23,15 @@ def evaluate(
         [make_env(env_id, 0, 0, capture_video, run_name)],
         autoreset_mode=gym.vector.AutoresetMode.SAME_STEP,
     )
-    model = Model(envs).to(device)
+    model = Model(envs, n_atoms=n_atoms, v_min=v_min, v_max=v_max).to(device)
     model.load_state_dict(torch.load(model_path, map_location=device))
     model.eval()
 
     obs, _ = envs.reset()
     episodic_returns = []
     while len(episodic_returns) < eval_episodes:
-        q_values = model(torch.Tensor(obs).to(device))
+        q_dist = model(torch.Tensor(obs).to(device))
+        q_values = torch.sum(q_dist * model.support, dim=2)
         actions = torch.argmax(q_values, dim=1).cpu().numpy()
         next_obs, _, _, _, infos = envs.step(actions)
         if "final_info" in infos:
@@ -46,20 +50,6 @@ def evaluate(
 
 
 if __name__ == "__main__":
-    from huggingface_hub import hf_hub_download
-
-    from cleanrl.dqn import QNetwork, make_env
-
-    model_path = hf_hub_download(
-        repo_id="cleanrl/CartPole-v1-dqn-seed1", filename="q_network.pth"
-    )
-    evaluate(
-        model_path,
-        make_env,
-        "CartPole-v1",
-        eval_episodes=10,
-        run_name=f"eval",
-        Model=QNetwork,
-        device="cpu",
-        capture_video=False,
+    raise NotImplementedError(
+        "Run cleanrl_utils/enjoy.py instead to evaluate trained models."
     )
