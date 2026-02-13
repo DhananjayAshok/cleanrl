@@ -1,6 +1,6 @@
 import random
 from typing import Callable
-
+from argparse import Namespace
 import gymnasium as gym
 import numpy as np
 import torch
@@ -13,9 +13,6 @@ def evaluate(
     eval_episodes: int,
     run_name: str,
     Model: torch.nn.Module,
-    n_atoms: int = 51,
-    v_min: float = -10.0,
-    v_max: float = 10.0,
     device: torch.device = torch.device("cpu"),
     capture_video: bool = True,
 ):
@@ -23,7 +20,11 @@ def evaluate(
         [make_env(env_id, 0, 0, capture_video, run_name)],
         autoreset_mode=gym.vector.AutoresetMode.SAME_STEP,
     )
-    model = Model(envs, n_atoms=n_atoms, v_min=v_min, v_max=v_max).to(device)
+    model_data = torch.load(model_path, map_location="cpu")
+    args = Namespace(**model_data["args"])
+    model = Model(envs, n_atoms=args.n_atoms, v_min=args.v_min, v_max=args.v_max).to(
+        device
+    )
     model.load_state_dict(torch.load(model_path, map_location=device))
     model.eval()
 
