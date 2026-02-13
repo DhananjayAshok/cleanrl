@@ -52,5 +52,5 @@ if __name__ == "__main__":
         device=(
             torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         ),
-        capture_video=args.capture_video,
+        capture_video=True,
     )
