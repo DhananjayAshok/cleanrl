@@ -87,7 +87,7 @@ class Args:
 
 def make_env(env_id, seed, idx, capture_video, run_name, gamma=0.99):
     if env_id.startswith("poke_worlds:"):
-        from cleanrl_utils.poke_worlds import poke_worlds_make_env
+        from cleanrl.cleanrl_utils.port_poke_worlds import poke_worlds_make_env
 
         return poke_worlds_make_env(
             env_id, seed, idx, capture_video, run_name, gamma=gamma
@@ -192,9 +192,9 @@ if __name__ == "__main__":
         ],
         autoreset_mode=gym.vector.AutoresetMode.SAME_STEP,
     )
-    assert isinstance(envs.single_action_space, gym.spaces.Discrete), (
-        "only discrete action space is supported"
-    )
+    assert isinstance(
+        envs.single_action_space, gym.spaces.Discrete
+    ), "only discrete action space is supported"
 
     q_network = QNetwork(
         envs, n_atoms=args.n_atoms, v_min=args.v_min, v_max=args.v_max
