@@ -39,15 +39,15 @@ class OneOfToDiscreteWrapper(gym.ActionWrapper):
 def parse_pokeworlds_id_string(id_string):
     """
 
-    :param id_string: should be in format "poke_worlds:game:environment_variant:controller_variant:max_steps"
-    Example: poke_worlds:pokemon_red:starter_explore:low_level:20
+    :param id_string: should be in format "poke_worlds-game-environment_variant-controller_variant-max_steps"
+    Example: poke_worlds-pokemon_red-starter_explore-low_level-20
     :return: tuple (game, environment_variant, controller_variant, max_steps)
     """
     #
-    parts = id_string.split(":")
+    parts = id_string.split("-")
     if len(parts) != 5 or parts[0] != "poke_worlds":
         raise ValueError(
-            f"Invalid ID string format. Expected 'poke_worlds:game:environment_variant:controller_variant:max_steps'. Got {id_string}"
+            f"Invalid ID string format. Expected 'poke_worlds-game-environment_variant-controller_variant-max_steps'. Got {id_string}"
         )
     _, game, environment_variant, controller_variant, max_steps_str = parts
     if not max_steps_str.isdigit():
