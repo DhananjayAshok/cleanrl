@@ -39,27 +39,30 @@ class OneOfToDiscreteWrapper(gym.ActionWrapper):
 def parse_pokeworlds_id_string(id_string):
     """
 
-    :param id_string: should be in format "poke_worlds-game-environment_variant-controller_variant-max_steps"
-    Example: poke_worlds-pokemon_red-starter_explore-low_level-20
-    :return: tuple (game, environment_variant, controller_variant, max_steps)
+    :param id_string: should be in format "poke_worlds-game-environment_variant-controller_variant-max_steps-save_video"
+    Example: poke_worlds-pokemon_red-starter_explore-low_level-20-true
+    :return: tuple (game, environment_variant, controller_variant, max_steps, save_video)
     """
     #
     parts = id_string.split("-")
-    if len(parts) != 5 or parts[0] != "poke_worlds":
+    if len(parts) != 6 or parts[0] != "poke_worlds":
         raise ValueError(
-            f"Invalid ID string format. Expected 'poke_worlds-game-environment_variant-controller_variant-max_steps'. Got {id_string}"
+            f"Invalid ID string format. Expected 'poke_worlds-game-environment_variant-controller_variant-max_steps-save_video'. Got {id_string}"
         )
-    _, game, environment_variant, controller_variant, max_steps_str = parts
+    _, game, environment_variant, controller_variant, max_steps_str, save_video_str = (
+        parts
+    )
     if not max_steps_str.isdigit():
         raise ValueError(
             f"Invalid max_steps value. Expected an integer. Got {max_steps_str}"
         )
     max_steps = int(max_steps_str)
-    return game, environment_variant, controller_variant, max_steps
+    save_video = save_video_str.lower() == "true"
+    return game, environment_variant, controller_variant, max_steps, save_video
 
 
 def get_poke_worlds_environment(id_string, render_mode=None):
-    game, environment_variant, controller_variant, max_steps = (
+    game, environment_variant, controller_variant, max_steps, save_video = (
         parse_pokeworlds_id_string(id_string)
     )
     env = get_environment(
@@ -68,7 +71,7 @@ def get_poke_worlds_environment(id_string, render_mode=None):
         environment_variant=environment_variant,
         max_steps=max_steps,
         headless=True,
-        save_video=False,
+        save_video=save_video,
     )
     env = OneOfToDiscreteWrapper(env)
     if render_mode is not None:
