@@ -79,6 +79,12 @@ class Args:
     target_entropy_scale: float = 0.89
     """coefficient for scaling the autotune entropy target"""
 
+    # Curiosity module specific arguments
+    curiosity_module: str = "embedbuffer"
+    """the type of curiosity module to use. Options are: 'embedbuffer', 'clusterbuffer', 'world_model'"""
+    observation_embedder: str = "cnn"
+    """the type of observation embedder to use for the curiosity module."""
+
 
 def make_env(env_id, seed, idx, capture_video, run_name, gamma=0.99):
     if env_id.startswith("poke_worlds"):
@@ -275,7 +281,6 @@ if __name__ == "__main__":
             actions
         )  # Do not use the rewards from the environment, use the rewards from the curiosity module instead.
         rewards = curiosity_module.get_reward(obs, actions, next_obs, infos)
-        # TODO: implement curiosity-driven intrinsic reward here.
 
         # TRY NOT TO MODIFY: record rewards for plotting purposes
         if "final_info" in infos:
