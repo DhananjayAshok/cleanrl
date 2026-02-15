@@ -22,6 +22,7 @@ from cleanrl_utils.atari_wrappers import (
     NoopResetEnv,
 )
 from cleanrl_utils.buffers import ReplayBuffer
+from cleanrl_utils.port_poke_worlds import get_curiosity_module
 
 
 @dataclass
@@ -80,6 +81,14 @@ class Args:
     """timestep to start learning"""
     train_frequency: int = 4
     """the frequency of training"""
+
+    # Curiosity module specific arguments
+    curiosity_module: str = "embedbuffer"
+    """the type of curiosity module to use. Options are: 'embedbuffer', 'clusterbuffer', 'world_model'"""
+    observation_embedder: str = "cnn"
+    """the type of observation embedder to use for the curiosity module."""
+    reset_curiosity_module: bool = False
+    """whether to reset the curiosity module at the end of each episode"""
 
 
 def make_env(env_id, seed, idx, capture_video, run_name, gamma=0.99):
@@ -196,6 +205,7 @@ if __name__ == "__main__":
         optimize_memory_usage=True,
         handle_timeout_termination=False,
     )
+    curiosity_module = get_curiosity_module(args)
     start_time = time.time()
 
     # TRY NOT TO MODIFY: start the game
@@ -217,7 +227,13 @@ if __name__ == "__main__":
             actions = torch.argmax(q_values, dim=1).cpu().numpy()
 
         # TRY NOT TO MODIFY: execute the game and log data.
-        next_obs, rewards, terminations, truncations, infos = envs.step(actions)
+        next_obs, _, terminations, truncations, infos = envs.step(actions)
+        if "final_info" in infos:
+            rewards = 0.0
+            if args.reset_curiosity_module:
+                curiosity_module.reset()  # reset the curiosity module at the end of each episode if the flag is set
+        else:
+            rewards = curiosity_module.get_reward(obs, actions, next_obs, infos)
 
         # TRY NOT TO MODIFY: record rewards for plotting purposes
         if "final_info" in infos:

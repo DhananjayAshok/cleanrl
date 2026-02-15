@@ -21,6 +21,7 @@ from cleanrl_utils.atari_wrappers import (  # isort:skip
     MaxAndSkipEnv,
     NoopResetEnv,
 )
+from cleanrl_utils.port_poke_worlds import get_curiosity_module
 
 
 @dataclass
@@ -81,6 +82,14 @@ class Args:
     """the maximum norm for the gradient clipping"""
     target_kl: float = None
     """the target KL divergence threshold"""
+
+    # Curiosity module specific arguments
+    curiosity_module: str = "embedbuffer"
+    """the type of curiosity module to use. Options are: 'embedbuffer', 'clusterbuffer', 'world_model'"""
+    observation_embedder: str = "cnn"
+    """the type of observation embedder to use for the curiosity module."""
+    reset_curiosity_module: bool = False
+    """whether to reset the curiosity module at the end of each episode"""
 
     # to be filled in runtime
     batch_size: int = 0
@@ -202,6 +211,7 @@ if __name__ == "__main__":
 
     agent = Agent(envs).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
+    curiosity_module = get_curiosity_module(args)
 
     # ALGO Logic: Storage setup
     obs = torch.zeros(
@@ -242,11 +252,22 @@ if __name__ == "__main__":
             logprobs[step] = logprob
 
             # TRY NOT TO MODIFY: execute the game and log data.
-            next_obs, reward, terminations, truncations, infos = envs.step(
+            next_obs, _, terminations, truncations, infos = envs.step(
                 action.cpu().numpy()
             )
             next_done = np.logical_or(terminations, truncations)
-            rewards[step] = torch.tensor(reward).to(device).view(-1)
+            if "final_info" in infos:
+                rewards[step] = torch.tensor(0.0).to(device).view(-1)
+                if args.reset_curiosity_module:
+                    curiosity_module.reset()  # reset the curiosity module at the end of each episode if the flag is set
+            else:
+                rewards[step] = (
+                    torch.tensor(
+                        curiosity_module.get_reward(obs[step], action, next_obs, infos)
+                    )
+                    .to(device)
+                    .view(-1)
+                )
             next_obs, next_done = (
                 torch.Tensor(next_obs).to(device),
                 torch.Tensor(next_done).to(device),

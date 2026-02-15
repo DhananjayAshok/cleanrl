@@ -112,6 +112,7 @@ class PatchProjection:
     cell_reduction_dimension = 8  # hidden dimension is cell_reduction_dimension * 90
 
     def __init__(self):
+        super().__init__()
         start = 16 * 16
         end = self.cell_reduction_dimension
         my_local_rng = torch.Generator(
@@ -175,17 +176,21 @@ class PatchProjection:
 
 class CNNEmbedder(nn.Module):
     def __init__(self, hidden_dim=720):
+        super().__init__()
         self.cnn = nn.Sequential(
             nn.Conv2d(
-                4, 32, kernel_size=8, stride=4
-            ),  # Assuming input shape (4, 84, 84) # TODO: Check the input shape. This is likely wrong
+                1,
+                32,
+                kernel_size=16,
+                stride=16,  # 16x16 patches with no overlap to get each of the gameboys 16x16 cells.
+            ),  # (batch_size, 32, 9, 10)
             nn.ReLU(),
-            nn.Conv2d(32, 64, kernel_size=4, stride=2),
+            nn.Conv2d(32, 64, kernel_size=1, stride=2),  # (batch_size, 64, 5, 5)
             nn.ReLU(),
-            nn.Conv2d(64, 64, kernel_size=3, stride=1),
+            nn.Conv2d(64, 64, kernel_size=2, stride=1),  # (batch_size, 64, 4, 4)
             nn.ReLU(),
             nn.Flatten(),
-            nn.Linear(7 * 7 * 64, hidden_dim),
+            nn.Linear(64 * 4 * 4, hidden_dim),
             nn.Sigmoid(),
         )
         self.output_dim = hidden_dim
@@ -239,6 +244,9 @@ class WorldModel(nn.Module):
         reward = torch.norm(predicted_next_obs_embed - next_obs_embed, dim=-1).item()
         return reward
 
+    def reset(self):
+        pass  # I don't think world model needs to reset anything, but we include this method for API consistency with the other curiosity modules.
+
 
 def get_passed_frames(infos) -> np.ndarray:
     # infos['core']['passed_frames'].shape == (1, n_frames, 144, 160, 1)
@@ -249,8 +257,11 @@ def get_passed_frames(infos) -> np.ndarray:
 class EmbedBuffer:
     def __init__(self, embedder, max_size=10_000):
         self.max_size = max_size
-        self.buffer = None
         self.embedder = embedder
+
+    def reset(self):
+        del self.buffer
+        self.buffer = None
 
     def add(self, items: np.ndarray, embeddings=None):
         if self.buffer is None:
@@ -275,39 +286,64 @@ class EmbedBuffer:
 
     def get_reward(self, obs, actions, next_obs, infos) -> float:
         passed_frames = get_passed_frames(infos)
-        score = self.compare(passed_frames)
-        self.add(passed_frames)
-        if self.buffer is None:
-            self.add(passed_frames)
-            return 0.0
-        else:
-            breakpoint()  # TODO: Check shapes etc
-            item_embeddings = self.embedder.embed(passed_frames)
-            # assume they are normalized, so cosine similarity is just dot product
-            cosine_similarities = torch.matmul(self.buffer, item_embeddings.T).squeeze()
-            max_similarity = torch.max(cosine_similarities).item()
-            self.add(passed_frames, embeddings=item_embeddings)
-            return 1 - max_similarity
+        with torch.no_grad():
+            if self.buffer is None:
+                self.add(passed_frames)
+                return 0.0
+            else:
+                item_embeddings = self.embedder.embed(passed_frames)
+                # assume they are normalized, so cosine similarity is just dot product
+                cosine_similarities = torch.matmul(
+                    self.buffer, item_embeddings.T
+                ).T  # shape (n_frames, buffer_size)
+                # get max per frame, then average across frames
+                score = (
+                    (1 - torch.max(cosine_similarities, dim=-1).values).mean().item()
+                )
+                self.add(passed_frames, embeddings=item_embeddings)
+                return score
 
 
-class ClusterOnlyBuffer(Buffer):
-    def __init__(self, n_clusters=100):
-        self.clusters = MiniBatchKMeans(n_clusters=n_clusters, random_state=42)
+class ClusterOnlyBuffer:
+    def __init__(self, embedder, n_clusters=100):
+        self.embedder = embedder
+        self.n_clusters = n_clusters
+        self.reset()
+
+    def reset(self):
+        self.clusters = MiniBatchKMeans(n_clusters=self.n_clusters, random_state=42)
+        self.has_fit = False
+        self.initial_buffer = None
 
     def add(self, items: np.ndarray):
-        self.clusters.partial_fit(items)
+        if self.has_fit:
+            self.clusters.partial_fit(items)
+        else:
+            if self.initial_buffer is None:
+                self.initial_buffer = items
+            else:
+                self.initial_buffer = np.concatenate(
+                    [self.initial_buffer, items], axis=0
+                )
+                if len(self.initial_buffer) >= self.clusters.n_clusters:
+                    self.clusters.fit(self.initial_buffer)
+                    self.has_fit = True
+                    self.initial_buffer = None
 
     def compare(self, items: np.ndarray) -> int:
         score = self.clusters.score(items)
-        # if one cluster dominates, then we are close to a known state, otherwise we are in a novel state.
-        breakpoint()  # TODO: figure out how to use the score to determine novelty.
-        return score
+        return -score
 
     def get_reward(self, obs, actions, next_obs, infos) -> float:
-        passed_frames = get_passed_frames(infos)
-        score = self.compare(passed_frames)
-        self.add(passed_frames)
-        return score
+        with torch.no_grad():
+            passed_frames = get_passed_frames(infos)
+            embedding = self.embedder.embed(passed_frames).cpu().numpy()
+            if self.has_fit:
+                score = self.compare(embedding)
+            else:
+                score = 0.0
+            self.add(embedding)
+            return score
 
 
 def get_curiosity_module(args):
@@ -319,7 +355,7 @@ def get_curiosity_module(args):
         if args.curiosity_module == "embedbuffer":
             module = EmbedBuffer(embedder)
         elif args.curiosity_module == "clusterbuffer":
-            module = ClusterOnlyBuffer()
+            module = ClusterOnlyBuffer(embedder=embedder)
     elif args.curiosity_module == "world_model":
         module = WorldModel(embedder=embedder)
     return module
