@@ -103,7 +103,7 @@ def poke_worlds_make_env(env_id, seed, idx, capture_video, run_name, gamma=0.99)
     return thunk
 
 
-class PatchProjection:
+class PatchProjection(nn.Module):
     """
     Works with the 144 x 160 pixel observations from poke_worlds.
     Divides the image into 16x16 patches, applies a random linear projection to each patch, and concatenates the results.
@@ -113,62 +113,31 @@ class PatchProjection:
 
     def __init__(self):
         super().__init__()
-        start = 16 * 16
-        end = self.cell_reduction_dimension
-        my_local_rng = torch.Generator(
-            device="cuda" if torch.cuda.is_available() else "cpu"
+        self.project = nn.Sequential(
+            nn.Conv2d(
+                1,
+                1,
+                kernel_size=16,
+                stride=16,  # 16x16 patches with no overlap to get each of the gameboys 16x16 cells.
+            ),  # (batch_size, 32, 9, 10)
+            nn.Flatten(),
         )
-        my_local_rng.manual_seed(42)
-        breakpoint()  # Change this to a CNN-based projector.
-        step1 = nn.Linear(
-            start,
-            end,
-            bias=False,
-            dtype=torch.bfloat16,
-            device="cuda" if torch.cuda.is_available() else "cpu",
-        )
-        nn.init.kaiming_normal_(step1.weight, generator=my_local_rng)
-        self.random_projection = nn.Sequential(
-            step1,
-        )
-        self.output_dim = self.cell_reduction_dimension * 90
+        self.dtype = self.project[0].weight.dtype
+        self.device = self.project[0].weight.device
 
-    def _embed_single(self, item: np.ndarray) -> torch.Tensor:
-        assert (
-            item.shape.prod() == 144 * 160 * 1
-        ), f"Expected input shape to have 144*160*1 elements, got {item.shape}. Make sure to provide the raw pixel observation without any wrappers that change the shape."
-        item = np.array(item)
-        grid_cells = StateParser.capture_grid_cells(item, y_offset=0)
-        # Always 90 grid cells that are 16x16 (because 160 * 144)
-        cell_embeddings = []
-        cell_keys = sorted(grid_cells.keys())
-        for key in cell_keys:
-            cell_image = grid_cells[key]
-            cell_image_resized = np.resize(cell_image, (16, 16))
-            cell_image_flat = cell_image_resized.flatten()
-            cell_image_tensor = torch.tensor(
-                cell_image_flat,
-                dtype=torch.bfloat16,
-                device=self.random_projection[0].weight.device,
-            )
-            with torch.no_grad():
-                cell_embedding = self.random_projection(cell_image_tensor)
-                # normalize
-                cell_embedding = nn.functional.normalize(cell_embedding, dim=-1)
-            cell_embeddings.append(cell_embedding)
-        # cell_embeddings_tensor = torch.stack(cell_embeddings, dim=0)
-        # image_embedding = torch.mean(cell_embeddings_tensor, dim=0) # shape (cell_reduction_dimension,)
-        image_embedding = torch.cat(
-            cell_embeddings, dim=0
-        )  # shape (cell_reduction_dimension*90,)
-        return image_embedding
+    def forward(self, x):
+        vector = self.project(x)
+        normalized = nn.functional.normalize(vector, dim=-1)
+        return normalized
 
     def embed(self, items: List[np.ndarray]) -> torch.Tensor:
-        embeddings = []
-        for item in items:
-            embedding = self._embed_single(item)
-            embeddings.append(embedding)
-        return torch.stack(embeddings, dim=0)
+        if not isinstance(items, torch.Tensor):
+            batch_tensor = torch.tensor(
+                items.reshape(-1, 1, 144, 160),
+            )
+        batch_tensor = batch_tensor.to(self.dtype).to(self.device)
+        embeddings = self(batch_tensor)
+        return embeddings
 
     def train(self, **kwargs):
         pass
