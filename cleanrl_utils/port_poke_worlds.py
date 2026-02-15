@@ -45,7 +45,7 @@ def parse_pokeworlds_id_string(id_string):
     """
 
     :param id_string: should be in format "poke_worlds-game-environment_variant-init_state-controller_variant-max_steps-save_video"
-    Example: poke_worlds-pokemon_red-starter_explore-starter-low_level-20-true
+    Example: poke_worlds-pokemon_red-starter_explore-none-low_level-20-true
     :return: tuple (game, environment_variant, init_state, controller_variant, max_steps, save_video)
     """
     #
@@ -69,6 +69,8 @@ def parse_pokeworlds_id_string(id_string):
         )
     max_steps = int(max_steps_str)
     save_video = save_video_str.lower() == "true"
+    if init_state.lower() == "none":
+        init_state = None
     return (
         game,
         environment_variant,
