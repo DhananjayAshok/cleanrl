@@ -260,6 +260,7 @@ class EmbedBuffer:
     def __init__(self, embedder, max_size=10_000):
         self.max_size = max_size
         self.embedder = embedder
+        self.buffer = None
         self.reset()
 
     def reset(self):
