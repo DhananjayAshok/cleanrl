@@ -263,6 +263,7 @@ if __name__ == "__main__":
         handle_timeout_termination=False,
     )
     curiosity_module = get_curiosity_module(args)
+    episode_rewards = []
 
     start_time = time.time()
 
@@ -287,8 +288,11 @@ if __name__ == "__main__":
             rewards = 0.0
             if args.reset_curiosity_module:
                 curiosity_module.reset()  # reset the curiosity module at the end of each episode if the flag is set
+            this_episode_reward = sum(episode_rewards)
+            episode_rewards = []
         else:
             rewards = curiosity_module.get_reward(obs, actions, next_obs, infos)
+            episode_rewards.append(rewards)
 
         # TRY NOT TO MODIFY: record rewards for plotting purposes
         if "final_info" in infos:
@@ -299,10 +303,10 @@ if __name__ == "__main__":
                 if "episode" not in info:
                     continue
                 print(
-                    f"global_step={global_step}, episodic_return={info['episode']['r']}"
+                    f"global_step={global_step}, episodic_return={this_episode_reward}"
                 )
                 writer.add_scalar(
-                    "charts/episodic_return", info["episode"]["r"], global_step
+                    "charts/episodic_return", this_episode_reward, global_step
                 )
                 writer.add_scalar(
                     "charts/episodic_length", info["episode"]["l"], global_step
