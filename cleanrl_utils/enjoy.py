@@ -11,6 +11,8 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--exp-name", type=str, default="dqn_atari",
         help="the name of this experiment (e.g., ppo, dqn_atari)")
+    parser.add_argument("--save-name", type=str, default="",
+        help="the name to use when saving the model (e.g., dqn_atari_model). If not specified, will not be used")
     parser.add_argument("--seed", type=int, default=1,
         help="seed of the experiment")
     parser.add_argument("--hf-entity", type=str, default="cleanrl",
@@ -42,12 +44,17 @@ if __name__ == "__main__":
         model_path = hf_hub_download(
             repo_id=args.hf_repository, filename=f"{args.exp_name}.cleanrl_model"
         )
+    run_name = (
+        f"eval/{args.env_id}/{args.exp_name}/" + f"{args.save_name}/"
+        if args.save_name
+        else ""
+    )
     evaluate(
         model_path,
         make_env,
         args.env_id,
         eval_episodes=args.eval_episodes,
-        run_name=f"eval/{args.env_id}/{args.exp_name}/",
+        run_name=run_name,
         Model=Model,
         device=(
             torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
