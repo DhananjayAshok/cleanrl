@@ -231,6 +231,7 @@ if __name__ == "__main__":
     next_obs, _ = envs.reset(seed=args.seed)
     next_obs = torch.Tensor(next_obs).to(device)
     next_done = torch.zeros(args.num_envs).to(device)
+    episode_rewards = []
 
     for iteration in range(1, args.num_iterations + 1):
         # Annealing the rate if instructed to do so.
@@ -260,6 +261,8 @@ if __name__ == "__main__":
                 rewards[step] = torch.tensor(0.0).to(device).view(-1)
                 if args.reset_curiosity_module:
                     curiosity_module.reset()  # reset the curiosity module at the end of each episode if the flag is set
+                this_episode_reward = sum(episode_rewards)
+                episode_rewards = []
             else:
                 rewards[step] = (
                     torch.tensor(
@@ -268,6 +271,8 @@ if __name__ == "__main__":
                     .to(device)
                     .view(-1)
                 )
+                episode_rewards.append(rewards[step])
+
             next_obs, next_done = (
                 torch.Tensor(next_obs).to(device),
                 torch.Tensor(next_done).to(device),
@@ -279,10 +284,10 @@ if __name__ == "__main__":
                 for info in infos["final_info"]:
                     if info and "episode" in info:
                         print(
-                            f"global_step={global_step}, episodic_return={info['episode']['r']}"
+                            f"global_step={global_step}, episodic_return={this_episode_reward}"
                         )
                         writer.add_scalar(
-                            "charts/episodic_return", info["episode"]["r"], global_step
+                            "charts/episodic_return", this_episode_reward, global_step
                         )
                         writer.add_scalar(
                             "charts/episodic_length", info["episode"]["l"], global_step

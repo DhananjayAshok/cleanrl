@@ -188,9 +188,9 @@ if __name__ == "__main__":
         ],
         autoreset_mode=gym.vector.AutoresetMode.SAME_STEP,
     )
-    assert isinstance(
-        envs.single_action_space, gym.spaces.Discrete
-    ), "only discrete action space is supported"
+    assert isinstance(envs.single_action_space, gym.spaces.Discrete), (
+        "only discrete action space is supported"
+    )
 
     q_network = QNetwork(envs).to(device)
     optimizer = optim.Adam(q_network.parameters(), lr=args.learning_rate)
@@ -207,6 +207,7 @@ if __name__ == "__main__":
     )
     curiosity_module = get_curiosity_module(args)
     start_time = time.time()
+    episode_rewards = []
 
     # TRY NOT TO MODIFY: start the game
     obs, _ = envs.reset(seed=args.seed)
@@ -230,10 +231,14 @@ if __name__ == "__main__":
         next_obs, _, terminations, truncations, infos = envs.step(actions)
         if "final_info" in infos:
             rewards = 0.0
+            this_episode_reward = sum(episode_rewards)
+            episode_rewards = []
             if args.reset_curiosity_module:
                 curiosity_module.reset()  # reset the curiosity module at the end of each episode if the flag is set
         else:
-            rewards = curiosity_module.get_reward(obs, actions, next_obs, infos)
+            reward = curiosity_module.get_reward(obs, actions, next_obs, infos)
+            episode_rewards.append(reward)
+            rewards = reward
 
         # TRY NOT TO MODIFY: record rewards for plotting purposes
         if "final_info" in infos:
@@ -242,10 +247,10 @@ if __name__ == "__main__":
             for info in infos["final_info"]:
                 if info and "episode" in info:
                     print(
-                        f"global_step={global_step}, episodic_return={info['episode']['r']}"
+                        f"global_step={global_step}, episodic_return={this_episode_reward}"
                     )
                     writer.add_scalar(
-                        "charts/episodic_return", info["episode"]["r"], global_step
+                        "charts/episodic_return", this_episode_reward, global_step
                     )
                     writer.add_scalar(
                         "charts/episodic_length", info["episode"]["l"], global_step
