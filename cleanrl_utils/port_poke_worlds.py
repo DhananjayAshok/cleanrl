@@ -204,8 +204,10 @@ class CNNEmbedder(nn.Module):
 
     def embed(self, items: List[np.ndarray]) -> torch.Tensor:
         batch_tensor = torch.tensor(
-            items, dtype=torch.float32, device=next(self.parameters()).device
-        )  # TODO: Check this.
+            items.reshape(-1, 1, 144, 160),
+            dtype=torch.float32,
+            device=next(self.parameters()).device,
+        )
         embeddings = self(batch_tensor)
         return embeddings
 
