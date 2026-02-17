@@ -238,6 +238,8 @@ class WorldModel(nn.Module):
 def get_passed_frames(infos) -> np.ndarray:
     # infos['core']['passed_frames'].shape == (1, n_frames, 144, 160, 1)
     frames = infos["core"]["passed_frames"]
+    if len(frames.shape) == 1:  # then a reset has happened. must use current frame
+        frames = infos["core"]["current_frame"]
     return frames.squeeze(0).reshape(-1, 144, 160)
 
 
