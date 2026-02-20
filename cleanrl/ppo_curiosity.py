@@ -141,8 +141,8 @@ class Agent(nn.Module):
         self.network = nn.Sequential(
             *get_gameboy_cnn_chain(),
         )
-        self.actor = layer_init(nn.Linear(2688, envs.single_action_space.n), std=0.01)
-        self.critic = layer_init(nn.Linear(2688, 1), std=1)
+        self.actor = layer_init(nn.Linear(128, envs.single_action_space.n), std=0.01)
+        self.critic = layer_init(nn.Linear(128, 1), std=1)
 
     def get_value(self, x):
         return self.critic(self.network(x / 255.0))

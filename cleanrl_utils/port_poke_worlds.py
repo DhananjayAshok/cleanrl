@@ -108,7 +108,9 @@ def poke_worlds_make_env(env_id, seed, idx, capture_video, run_name, gamma=0.99)
         else:
             env = get_poke_worlds_environment(env_id)
         env = gym.wrappers.RecordEpisodeStatistics(env)
-        # env = gym.wrappers.ResizeObservation(env, (84, 84))
+        env = gym.wrappers.ResizeObservation(
+            env, (144, 160)
+        )  # Don't ask me why, but this is needed.
         env = gym.wrappers.FrameStackObservation(env, 4)
         env = gym.wrappers.NormalizeReward(env, gamma=gamma)
 
@@ -171,18 +173,18 @@ def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
 def get_gameboy_cnn_chain():
     return nn.Sequential(
         layer_init(
-            nn.Conv2d(4, 32, kernel_size=8, stride=4)
-        ),  # (batch_size, 32, 20, 19)
+            nn.Conv2d(4, 32, kernel_size=16, stride=16)
+        ),  # (batch_size, 32, 9, 10)
         nn.ReLU(),
         layer_init(
             nn.Conv2d(32, 64, kernel_size=4, stride=2)
-        ),  # (batch_size, 64, 9, 8)
+        ),  # (batch_size, 64, 3, 4)
         nn.ReLU(),
         layer_init(
             nn.Conv2d(64, 64, kernel_size=3, stride=1)
-        ),  # (batch_size, 64, 7, 6)
+        ),  # (batch_size, 64, 1, 2)
         nn.ReLU(),
-        nn.Flatten(),
+        nn.Flatten(),  # (batch_size, 128)
     )
 
 
