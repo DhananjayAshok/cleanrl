@@ -134,17 +134,77 @@ def rainbow_atari():
     )
 
 
+def ppo_curiosity():
+    import cleanrl.ppo_curiosity
+    import cleanrl_utils.evals.ppo_eval
+
+    return (
+        cleanrl.ppo_curiosity.Agent,
+        cleanrl.ppo_curiosity.make_env,
+        cleanrl_utils.evals.ppo_eval.evaluate,
+    )
+
+
+def dqn_curiosity():
+    import cleanrl.dqn_curiosity
+    import cleanrl_utils.evals.dqn_eval
+
+    return (
+        cleanrl.dqn_curiosity.QNetwork,
+        cleanrl.dqn_curiosity.make_env,
+        cleanrl_utils.evals.dqn_eval.evaluate,
+    )
+
+
+def c51_curiosity():
+    import cleanrl.c51_curiosity
+    import cleanrl_utils.evals.c51_eval
+
+    return (
+        cleanrl.c51_curiosity.QNetwork,
+        cleanrl.c51_curiosity.make_env,
+        cleanrl_utils.evals.c51_eval.evaluate,
+    )
+
+
+def rainbow_curiosity():
+    import cleanrl.rainbow_curiosity
+    import cleanrl_utils.evals.rainbow_eval
+
+    return (
+        cleanrl.rainbow_curiosity.NoisyDuelingDistributionalNetwork,
+        cleanrl.rainbow_curiosity.make_env,
+        cleanrl_utils.evals.rainbow_eval.evaluate,
+    )
+
+
+def sac_curiosity():
+    import cleanrl.sac_curiosity
+    import cleanrl_utils.evals.sac_eval
+
+    return (
+        cleanrl.sac_curiosity.Actor,
+        cleanrl.sac_curiosity.make_env,
+        cleanrl_utils.evals.sac_eval.evaluate,
+    )
+
+
 MODELS = {
     "dqn": dqn,
     "dqn_atari": dqn_atari,
     "dqn_jax": dqn_jax,
     "dqn_atari_jax": dqn_atari_jax,
+    "dqn_curiosity": dqn_curiosity,
     "c51": c51,
     "c51_atari": c51_atari,
     "c51_jax": c51_jax,
     "c51_atari_jax": c51_atari_jax,
+    "c51_curiosity": c51_curiosity,
     "ppo_atari_envpool_xla_jax_scan": ppo_atari_envpool_xla_jax_scan,
     "ppo_atari": ppo_atari,
+    "ppo_curiosity": ppo_curiosity,
     "sac_atari": sac_atari,
+    "sac_curiosity": sac_curiosity,
     "rainbow_atari": rainbow_atari,
+    "rainbow_curiosity": rainbow_curiosity,
 }
