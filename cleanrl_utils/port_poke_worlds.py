@@ -135,7 +135,7 @@ class PatchProjection(nn.Module):
                 1,
                 kernel_size=16,
                 stride=16,  # 16x16 patches with no overlap to get each of the gameboys 16x16 cells.
-            ),  # (batch_size, 32, 9, 10)
+            ),  # (batch_size, 1, 9, 10)
             nn.Flatten(),
         )
         self.dtype = self.project[0].weight.dtype
