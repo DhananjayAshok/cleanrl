@@ -108,7 +108,7 @@ def poke_worlds_make_env(env_id, seed, idx, capture_video, run_name, gamma=0.99)
         else:
             env = get_poke_worlds_environment(env_id)
         env = gym.wrappers.RecordEpisodeStatistics(env)
-        env = gym.wrappers.ResizeObservation(env, (84, 84))
+        # env = gym.wrappers.ResizeObservation(env, (84, 84))
         env = gym.wrappers.FrameStackObservation(env, 4)
         env = gym.wrappers.NormalizeReward(env, gamma=gamma)
 
@@ -127,8 +127,9 @@ class PatchProjection(nn.Module):
 
     cell_reduction_dimension = 8  # hidden dimension is cell_reduction_dimension * 90
 
-    def __init__(self):
+    def __init__(self, normalized_observations=True):
         super().__init__()
+        self.normalized_observations = normalized_observations
         self.project = nn.Sequential(
             nn.Conv2d(
                 1,
@@ -143,8 +144,10 @@ class PatchProjection(nn.Module):
 
     def forward(self, x):
         vector = self.project(x)
-        normalized = nn.functional.normalize(vector, dim=-1)
-        return normalized
+        if self.normalized_observations:
+            normalized = nn.functional.normalize(vector, dim=-1)
+            return normalized
+        return vector
 
     def embed(self, items: List[np.ndarray]) -> torch.Tensor:
         if not isinstance(items, torch.Tensor):
@@ -159,33 +162,48 @@ class PatchProjection(nn.Module):
         pass
 
 
+def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
+    torch.nn.init.orthogonal_(layer.weight, std)
+    torch.nn.init.constant_(layer.bias, bias_const)
+    return layer
+
+
+def get_gameboy_cnn_chain():
+    return nn.Sequential(
+        layer_init(
+            nn.Conv2d(4, 32, kernel_size=8, stride=4)
+        ),  # (batch_size, 32, 20, 19)
+        nn.ReLU(),
+        layer_init(
+            nn.Conv2d(32, 64, kernel_size=4, stride=2)
+        ),  # (batch_size, 64, 9, 8)
+        nn.ReLU(),
+        layer_init(
+            nn.Conv2d(64, 64, kernel_size=3, stride=1)
+        ),  # (batch_size, 64, 7, 6)
+        nn.ReLU(),
+        nn.Flatten(),
+    )
+
+
 class CNNEmbedder(nn.Module):
-    def __init__(self, hidden_dim=720):
+    def __init__(self, hidden_dim=720, normalized_observations=True):
         super().__init__()
         self.cnn = nn.Sequential(
-            nn.Conv2d(
-                1,
-                32,
-                kernel_size=16,
-                stride=16,  # 16x16 patches with no overlap to get each of the gameboys 16x16 cells.
-            ),  # (batch_size, 32, 9, 10)
-            nn.ReLU(),
-            nn.Conv2d(32, 64, kernel_size=1, stride=2),  # (batch_size, 64, 5, 5)
-            nn.ReLU(),
-            nn.Conv2d(64, 64, kernel_size=2, stride=1),  # (batch_size, 64, 4, 4)
-            nn.ReLU(),
-            nn.Flatten(),
-            nn.Linear(64 * 4 * 4, hidden_dim),
+            *get_gameboy_cnn_chain(),
             nn.Sigmoid(),
         )
         self.output_dim = hidden_dim
+        self.normalized_observations = normalized_observations
 
     def forward(self, x):
         raw = self.cnn(x)
-        normalized = nn.functional.normalize(
-            raw, dim=-1
-        )  # Normalize the output embeddings
-        return normalized
+        if self.normalized_observations:
+            normalized = nn.functional.normalize(
+                raw, dim=-1
+            )  # Normalize the output embeddings
+            return normalized
+        return raw
 
     def embed(self, items: List[np.ndarray]) -> torch.Tensor:
         batch_tensor = torch.tensor(
