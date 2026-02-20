@@ -246,18 +246,17 @@ if __name__ == "__main__":
             logprobs[step] = logprob
 
             # TRY NOT TO MODIFY: execute the game and log data.
-            next_obs, _, terminations, truncations, infos = envs.step(
+            next_obs, rewards, terminations, truncations, infos = envs.step(
                 action.cpu().numpy()
             )
             next_done = np.logical_or(terminations, truncations)
             if "final_info" in infos:
-                rewards[step] = torch.tensor(0.0).to(device).view(-1)
                 if args.reset_curiosity_module:
                     curiosity_module.reset()  # reset the curiosity module at the end of each episode if the flag is set
                 this_episode_reward = sum(episode_rewards)
                 episode_rewards = []
             else:
-                rewards[step] = (
+                rewards[step] = rewards[step] + (
                     torch.tensor(
                         curiosity_module.get_reward(obs[step], action, next_obs, infos)
                     )

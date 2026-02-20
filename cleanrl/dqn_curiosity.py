@@ -220,17 +220,17 @@ if __name__ == "__main__":
             actions = torch.argmax(q_values, dim=1).cpu().numpy()
 
         # TRY NOT TO MODIFY: execute the game and log data.
-        next_obs, _, terminations, truncations, infos = envs.step(actions)
+        next_obs, rewards, terminations, truncations, infos = envs.step(actions)
         if "final_info" in infos:
-            rewards = 0.0
             this_episode_reward = sum(episode_rewards)
             episode_rewards = []
             if args.reset_curiosity_module:
                 curiosity_module.reset()  # reset the curiosity module at the end of each episode if the flag is set
         else:
-            reward = curiosity_module.get_reward(obs, actions, next_obs, infos)
-            episode_rewards.append(reward)
-            rewards = reward
+            rewards[0] = rewards[0] + curiosity_module.get_reward(
+                obs, actions, next_obs, infos
+            )
+            episode_rewards.append(rewards[0])
 
         # TRY NOT TO MODIFY: record rewards for plotting purposes
         if "final_info" in infos:
