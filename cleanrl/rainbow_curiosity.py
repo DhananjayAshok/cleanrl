@@ -345,8 +345,8 @@ class PrioritizedReplayBuffer:
         idx = self.pos
         self.buffer_obs[idx] = obs
         self.buffer_next_obs[idx] = next_obs
-        self.buffer_actions[idx] = action
-        self.buffer_rewards[idx] = reward
+        self.buffer_actions[idx] = action[0]
+        self.buffer_rewards[idx] = reward[0]
         self.buffer_dones[idx] = done
 
         priority = self.max_priority**self.alpha
