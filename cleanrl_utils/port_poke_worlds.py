@@ -263,9 +263,15 @@ def get_passed_frames(infos) -> np.ndarray:
 
 
 class EmbedBuffer:
-    def __init__(self, embedder, max_size=10_000):
+    def __init__(self, embedder, similarity_metric="cosine", max_size=10_000):
         self.max_size = max_size
         self.embedder = embedder
+        similarity_options = ["cosine", "distance", "hinge"]
+        if similarity_metric not in similarity_options:
+            raise ValueError(
+                f"Invalid similarity metric {similarity_metric}. Must be one of {similarity_options}"
+            )
+        self.similarity_metric = similarity_metric
         self.buffer = None
         self.reset()
 
@@ -302,14 +308,37 @@ class EmbedBuffer:
                 return 0.0
             else:
                 item_embeddings = self.embedder.embed(passed_frames)
-                # assume they are normalized, so cosine similarity is just dot product
-                cosine_similarities = torch.matmul(
-                    self.buffer, item_embeddings.T
-                ).T  # shape (n_frames, buffer_size)
-                # get max per frame, then average across frames
-                score = (
-                    (1 - torch.max(cosine_similarities, dim=-1).values).mean().item()
-                )
+                if self.similarity_metric == "cosine":
+                    # assume they are normalized, so cosine similarity is just dot product
+                    cosine_similarities = torch.matmul(
+                        self.buffer, item_embeddings.T
+                    ).T  # shape (n_frames, buffer_size)
+                    # get max per frame, then average across frames
+                    score = (
+                        (1 - torch.max(cosine_similarities, dim=-1).values)
+                        .mean()
+                        .item()
+                    )
+                elif self.similarity_metric == "distance":
+                    # compute pairwise distances and take min per frame, then average across frames
+                    distances = torch.cdist(
+                        item_embeddings, self.buffer
+                    )  # shape (n_frames, buffer_size)
+                    score = torch.min(distances, dim=-1).values.mean().item()
+                    breakpoint()  # TODO: Check
+                elif self.similarity_metric == "hinge":
+                    # essentially find the percentage of dimensions where item_embedding - self.buffer_element < margin, max over buffer elements, then average across frames
+                    margin = 0.01
+                    diffs = item_embeddings.unsqueeze(1) - self.buffer.unsqueeze(0)
+                    hinge = (diffs < margin).float()
+                    scores = hinge.mean(
+                        dim=-1
+                    )  # percentage of dimensions that are close
+                    max_scores = torch.max(
+                        scores, dim=-1
+                    ).values  # max over buffer elements
+                    score = (1 - max_scores).mean().item()  # average across frames
+                    breakpoint()  # TODO: Check
                 self.add(passed_frames, embeddings=item_embeddings)
                 return score
 
@@ -363,7 +392,7 @@ def get_curiosity_module(args):
         embedder = CNNEmbedder()
     if "buffer" in args.curiosity_module:
         if args.curiosity_module == "embedbuffer":
-            module = EmbedBuffer(embedder)
+            module = EmbedBuffer(embedder, similarity_metric=args.similarity_metric)
         elif args.curiosity_module == "clusterbuffer":
             module = ClusterOnlyBuffer(embedder=embedder)
     elif args.curiosity_module == "world_model":

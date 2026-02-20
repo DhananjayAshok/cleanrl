@@ -86,6 +86,8 @@ class Args:
     """the type of observation embedder to use for the curiosity module."""
     reset_curiosity_module: bool = False
     """whether to reset the curiosity module at the end of each episode"""
+    similarity_metric: str = "cosine"
+    """the similarity metric to use for the EmbedBuffer curiosity module."""
 
 
 def make_env(env_id, seed, idx, capture_video, run_name, gamma=0.99):
