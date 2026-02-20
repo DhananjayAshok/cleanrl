@@ -21,7 +21,7 @@ from cleanrl_utils.atari_wrappers import (
     NoopResetEnv,
 )
 from cleanrl_utils.buffers import ReplayBuffer
-from cleanrl_utils.port_poke_worlds import get_curiosity_module
+from cleanrl_utils.port_poke_worlds import get_curiosity_module, get_gameboy_cnn_chain
 
 
 @dataclass
@@ -133,14 +133,8 @@ class QNetwork(nn.Module):
         self.register_buffer("atoms", torch.linspace(v_min, v_max, steps=n_atoms))
         self.n = env.single_action_space.n
         self.network = nn.Sequential(
-            nn.Conv2d(4, 32, 8, stride=4),
-            nn.ReLU(),
-            nn.Conv2d(32, 64, 4, stride=2),
-            nn.ReLU(),
-            nn.Conv2d(64, 64, 3, stride=1),
-            nn.ReLU(),
-            nn.Flatten(),
-            nn.Linear(3136, 512),
+            *get_gameboy_cnn_chain(),
+            nn.Linear(128, 512),
             nn.ReLU(),
             nn.Linear(512, self.n * n_atoms),
         )
@@ -199,9 +193,9 @@ if __name__ == "__main__":
         ],
         autoreset_mode=gym.vector.AutoresetMode.SAME_STEP,
     )
-    assert isinstance(envs.single_action_space, gym.spaces.Discrete), (
-        "only discrete action space is supported"
-    )
+    assert isinstance(
+        envs.single_action_space, gym.spaces.Discrete
+    ), "only discrete action space is supported"
 
     q_network = QNetwork(
         envs, n_atoms=args.n_atoms, v_min=args.v_min, v_max=args.v_max

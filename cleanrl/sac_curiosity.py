@@ -23,7 +23,7 @@ from cleanrl_utils.atari_wrappers import (
     NoopResetEnv,
 )
 from cleanrl_utils.buffers import ReplayBuffer
-from cleanrl_utils.port_poke_worlds import get_curiosity_module
+from cleanrl_utils.port_poke_worlds import get_curiosity_module, get_gameboy_cnn_chain
 
 
 @dataclass
@@ -135,12 +135,7 @@ class SoftQNetwork(nn.Module):
         super().__init__()
         obs_shape = envs.single_observation_space.shape
         self.conv = nn.Sequential(
-            layer_init(nn.Conv2d(obs_shape[0], 32, kernel_size=8, stride=4)),
-            nn.ReLU(),
-            layer_init(nn.Conv2d(32, 64, kernel_size=4, stride=2)),
-            nn.ReLU(),
-            layer_init(nn.Conv2d(64, 64, kernel_size=3, stride=1)),
-            nn.Flatten(),
+            *get_gameboy_cnn_chain(),
         )
 
         with torch.inference_mode():
@@ -160,14 +155,7 @@ class Actor(nn.Module):
     def __init__(self, envs):
         super().__init__()
         obs_shape = envs.single_observation_space.shape
-        self.conv = nn.Sequential(
-            layer_init(nn.Conv2d(obs_shape[0], 32, kernel_size=8, stride=4)),
-            nn.ReLU(),
-            layer_init(nn.Conv2d(32, 64, kernel_size=4, stride=2)),
-            nn.ReLU(),
-            layer_init(nn.Conv2d(64, 64, kernel_size=3, stride=1)),
-            nn.Flatten(),
-        )
+        self.conv = nn.Sequential(*get_gameboy_cnn_chain())
 
         with torch.inference_mode():
             output_dim = self.conv(torch.zeros(1, *obs_shape)).shape[1]

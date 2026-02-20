@@ -24,7 +24,7 @@ from cleanrl_utils.atari_wrappers import (
     MaxAndSkipEnv,
     NoopResetEnv,
 )
-from cleanrl_utils.port_poke_worlds import get_curiosity_module
+from cleanrl_utils.port_poke_worlds import get_curiosity_module, get_gameboy_cnn_chain
 
 
 @dataclass
@@ -189,16 +189,8 @@ class NoisyDuelingDistributionalNetwork(nn.Module):
         self.n_actions = env.single_action_space.n
         self.register_buffer("support", torch.linspace(v_min, v_max, n_atoms))
 
-        self.network = nn.Sequential(
-            nn.Conv2d(4, 32, 8, stride=4),
-            nn.ReLU(),
-            nn.Conv2d(32, 64, 4, stride=2),
-            nn.ReLU(),
-            nn.Conv2d(64, 64, 3, stride=1),
-            nn.ReLU(),
-            nn.Flatten(),
-        )
-        conv_output_size = 3136
+        self.network = nn.Sequential(*get_gameboy_cnn_chain())
+        conv_output_size = 128
 
         self.value_head = nn.Sequential(
             NoisyLinear(conv_output_size, 512), nn.ReLU(), NoisyLinear(512, n_atoms)
@@ -454,9 +446,9 @@ if __name__ == "__main__":
         ],
         autoreset_mode=gym.vector.AutoresetMode.SAME_STEP,
     )
-    assert isinstance(envs.single_action_space, gym.spaces.Discrete), (
-        "only discrete action space is supported"
-    )
+    assert isinstance(
+        envs.single_action_space, gym.spaces.Discrete
+    ), "only discrete action space is supported"
 
     q_network = NoisyDuelingDistributionalNetwork(
         envs, args.n_atoms, args.v_min, args.v_max
