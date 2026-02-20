@@ -127,8 +127,6 @@ class PatchProjection(nn.Module):
     Divides the image into 16x16 patches, applies a random linear projection to each patch, and concatenates the results.
     """
 
-    cell_reduction_dimension = 8  # hidden dimension is cell_reduction_dimension * 90
-
     def __init__(self, normalized_observations=True):
         super().__init__()
         self.normalized_observations = normalized_observations
@@ -136,11 +134,12 @@ class PatchProjection(nn.Module):
             nn.Conv2d(
                 1,
                 1,
-                kernel_size=16,
-                stride=16,  # 16x16 patches with no overlap to get each of the gameboys 16x16 cells.
-            ),  # (batch_size, 1, 9, 10)
+                kernel_size=8,
+                stride=8,  # 8x8 patches with no overlap to get 4 snapshots of each of the gameboys 16x16 cells.
+            ),
             nn.Flatten(),
         )
+        self.output_dim = 90 * 4
         self.dtype = self.project[0].weight.dtype
         self.device = self.project[0].weight.device
 
