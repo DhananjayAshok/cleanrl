@@ -325,11 +325,12 @@ class EmbedBuffer:
                         item_embeddings, self.buffer
                     )  # shape (n_frames, buffer_size)
                     score = torch.min(distances, dim=-1).values.mean().item()
-                    breakpoint()  # TODO: Check
                 elif self.similarity_metric == "hinge":
                     # essentially find the percentage of dimensions where item_embedding - self.buffer_element < margin, max over buffer elements, then average across frames
                     margin = 0.01
-                    diffs = item_embeddings.unsqueeze(1) - self.buffer.unsqueeze(0)
+                    diffs = (
+                        item_embeddings.unsqueeze(1) - self.buffer.unsqueeze(0)
+                    ).abs()
                     hinge = (diffs < margin).float()
                     scores = hinge.mean(
                         dim=-1
@@ -338,7 +339,6 @@ class EmbedBuffer:
                         scores, dim=-1
                     ).values  # max over buffer elements
                     score = (1 - max_scores).mean().item()  # average across frames
-                    breakpoint()  # TODO: Check
                 self.add(passed_frames, embeddings=item_embeddings)
                 return score
 
@@ -387,9 +387,13 @@ class ClusterOnlyBuffer:
 
 def get_curiosity_module(args):
     if args.observation_embedder == "random_patch":
-        embedder = PatchProjection()
+        embedder = PatchProjection(
+            normalized_observations=args.similarity_metric == "cosine"
+        )
     elif args.observation_embedder == "cnn":
-        embedder = CNNEmbedder()
+        embedder = CNNEmbedder(
+            normalized_observations=args.similarity_metric == "cosine"
+        )
     if "buffer" in args.curiosity_module:
         if args.curiosity_module == "embedbuffer":
             module = EmbedBuffer(embedder, similarity_metric=args.similarity_metric)

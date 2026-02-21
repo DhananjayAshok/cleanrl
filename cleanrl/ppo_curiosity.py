@@ -90,6 +90,8 @@ class Args:
     """the type of observation embedder to use for the curiosity module."""
     reset_curiosity_module: bool = False
     """whether to reset the curiosity module at the end of each episode"""
+    similarity_metric: str = "cosine"
+    """the similarity metric to use for the EmbedBuffer curiosity module."""
 
     # to be filled in runtime
     batch_size: int = 0
