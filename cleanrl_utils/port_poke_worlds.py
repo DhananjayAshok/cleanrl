@@ -291,9 +291,14 @@ class EmbedBuffer:
             diffs = new_embedding.unsqueeze(1) - self.buffer.unsqueeze(0)
             save_embeddings = []
             for i in range(new_embedding.shape[0]):
-                if (
-                    diffs[i].abs().min().item() > 0.001
-                ):  # if the new embedding is not close to any existing embedding, add it to the buffer
+                max_dimension_diff = (
+                    diffs[i].abs().max(-1).values
+                )  # max absolute difference across dimensions for each buffer element
+                has_element_too_close = (
+                    max_dimension_diff.min().item() < 0.001
+                )  # if any buffer element is too close in any dimension, we consider it already in the buffer
+                if not has_element_too_close:
+                    breakpoint()
                     save_embeddings.append(new_embedding[i])
             if len(save_embeddings) == 0:
                 return
