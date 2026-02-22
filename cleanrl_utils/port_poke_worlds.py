@@ -287,6 +287,17 @@ class EmbedBuffer:
                 new_embedding = embeddings
             else:
                 new_embedding = self.embedder.embed(items)
+            # check if new_embeddings is already in the buffer. and if it is, skip adding:
+            diffs = new_embedding.unsqueeze(1) - self.buffer.unsqueeze(0)
+            save_embeddings = []
+            for i in range(new_embedding.shape[0]):
+                if (
+                    diffs[i].abs().min().item() > 0.001
+                ):  # if the new embedding is not close to any existing embedding, add it to the buffer
+                    save_embeddings.append(new_embedding[i])
+            if len(save_embeddings) == 0:
+                return
+            new_embedding = torch.stack(save_embeddings)  # TODO: Check shapes
             self.buffer = torch.cat([self.buffer, new_embedding], dim=0)
             if self.buffer.shape[0] > self.max_size:
                 self.rationalize_buffer()
