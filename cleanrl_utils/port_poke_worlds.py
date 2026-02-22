@@ -298,7 +298,6 @@ class EmbedBuffer:
                     max_dimension_diff.min().item() < 0.001
                 )  # if any buffer element is too close in any dimension, we consider it already in the buffer
                 if not has_element_too_close:
-                    breakpoint()
                     save_embeddings.append(new_embedding[i])
             if len(save_embeddings) == 0:
                 return
