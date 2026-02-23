@@ -295,9 +295,9 @@ class EmbedBuffer:
         if self.save_path is not None and self.buffer is not None:
             os.makedirs(self.save_path, exist_ok=True)
             torch.save(self.buffer.cpu(), self.save_path + "/embed_buffer.pt")
-            print(
-                f"Saved embed buffer with {self.buffer.shape[0]} entries to {self.save_path}/embed_buffer.pt"
-            )
+            # print(
+            #    f"Saved embed buffer with {self.buffer.shape[0]} entries to {self.save_path}/embed_buffer.pt"
+            # )
 
     def load(self):
         if self.load_path is not None:
@@ -409,9 +409,9 @@ class ClusterOnlyBuffer:
             os.makedirs(self.save_path, exist_ok=True)
             with open(self.save_path + "/cluster_buffer.pkl", "wb") as f:
                 pickle.dump(self.clusters, f)
-            print(
-                f"Saved cluster buffer with {self.n_clusters} clusters to {self.save_path}/cluster_buffer.pkl"
-            )
+            # print(
+            #    f"Saved cluster buffer with {self.n_clusters} clusters to {self.save_path}/cluster_buffer.pkl"
+            # )
 
     def load(self):
         if self.load_path is not None:
@@ -538,13 +538,17 @@ class PokemonReplayBuffer(ReplayBuffer):
         if save_folder is not None:
             save_path = f"{save_folder}/{run_name}/"
             os.makedirs(save_path, exist_ok=True)
+            save_size = None
             if self.full:
                 np.save(save_path + "/observations.npy", self.observations)
                 np.save(save_path + "/actions.npy", self.actions)
                 np.save(save_path + "/rewards.npy", self.rewards)
                 np.save(save_path + "/screens.npy", self.screens)
+                save_size = self.buffer_size
             else:
                 np.save(save_path + "/observations.npy", self.observations[: self.pos])
                 np.save(save_path + "/actions.npy", self.actions[: self.pos])
                 np.save(save_path + "/rewards.npy", self.rewards[: self.pos])
                 np.save(save_path + "/screens.npy", self.screens[: self.pos])
+                save_size = self.pos
+            print(f"Saved replay buffer with {save_size} entries to {save_path}")
