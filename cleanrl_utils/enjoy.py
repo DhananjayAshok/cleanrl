@@ -1,5 +1,6 @@
 import argparse
 import torch
+import numpy as np
 
 from huggingface_hub import hf_hub_download
 
@@ -10,6 +11,7 @@ from cleanrl_utils.port_poke_worlds import get_curiosity_module
 def parse_args():
     # fmt: off
     parser = argparse.ArgumentParser()
+    parser.add_argument("--random_seed", type=int, default=42, help="the random seed for reproducibility")
     parser.add_argument("--exp-name", type=str, default="dqn_atari",
         help="the name of this experiment (e.g., ppo, dqn_atari)")
     parser.add_argument("--save-name", type=str, default="",
@@ -43,6 +45,8 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
+    torch.manual_seed(args.random_seed)
+    np.random.seed(args.random_seed)
     module = get_curiosity_module(args)
     args.curiosity_module = module
     Model, make_env, evaluate = MODELS[args.exp_name]()
