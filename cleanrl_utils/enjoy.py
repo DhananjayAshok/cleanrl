@@ -4,6 +4,7 @@ import torch
 from huggingface_hub import hf_hub_download
 
 from cleanrl_utils.evals import MODELS
+from cleanrl_utils.port_poke_worlds import get_curiosity_module
 
 
 def parse_args():
@@ -25,6 +26,16 @@ def parse_args():
         help="the id of the environment")
     parser.add_argument("--eval-episodes", type=int, default=10,
         help="the number of evaluation episodes")
+    parser.add_argument("--curiosity_module", type=str, default="embedbuffer",
+                    help="the type of curiosity module to use.")
+    parser.add_argument("--observation_embedder", type=str, default="random_patch",
+                    help="the type of observation embedder to use for the curiosity module.")
+    parser.add_argument("--similarity_metric", type=str, default="cosine",
+                    help="the similarity metric to use for the EmbedBuffer curiosity module.")
+    parser.add_argument("--buffer_save_path", type=str, default=None,
+                    help="path to save the curiosity module's buffer")
+    parser.add_argument("--buffer_load_path", type=str, default=None,
+                    help="path to load the curiosity module's buffer from")
     args = parser.parse_args()
     # fmt: on
     return args
@@ -32,6 +43,8 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
+    module = get_curiosity_module(args)
+    args.curiosity_module = module
     Model, make_env, evaluate = MODELS[args.exp_name]()
     if args.model_path:
         model_path = args.model_path
@@ -60,4 +73,5 @@ if __name__ == "__main__":
             torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         ),
         capture_video=True,
+        args=args,
     )

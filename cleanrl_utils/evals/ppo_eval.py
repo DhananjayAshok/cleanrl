@@ -14,6 +14,7 @@ def evaluate(
     device: torch.device = torch.device("cpu"),
     capture_video: bool = True,
     gamma: float = 0.99,
+    args=None,
 ):
     envs = gym.vector.SyncVectorEnv(
         [make_env(env_id, 0, capture_video, run_name, gamma)],
@@ -26,8 +27,16 @@ def evaluate(
     obs, _ = envs.reset()
     episodic_returns = []
     while len(episodic_returns) < eval_episodes:
+        curiosity_rewards = []
         actions, _, _, _ = agent.get_action_and_value(torch.Tensor(obs).to(device))
-        next_obs, _, _, _, infos = envs.step(actions.cpu().numpy())
+        next_obs, rewards, terminations, truncations, infos = envs.step(
+            actions.cpu().numpy()
+        )
+        curiosity_reward = args.curiosity_module.get_reward(
+            obs, actions, next_obs, infos
+        )
+        rewards[0] = rewards[0] + curiosity_reward
+        curiosity_rewards.append(curiosity_reward)
         if "final_info" in infos:
             if isinstance(infos["final_info"], dict):
                 infos["final_info"] = [infos["final_info"]]
@@ -35,9 +44,11 @@ def evaluate(
                 if "episode" not in info:
                     continue
                 print(
-                    f"eval_episode={len(episodic_returns)}, episodic_return={info['episode']['r']}"
+                    f"eval_episode={len(episodic_returns)}, episodic_return={info['episode']['r']}, curiosity_reward={sum(curiosity_rewards)}"
                 )
                 episodic_returns += [info["episode"]["r"]]
+            args.curiosity_module.iterative_save()
+            args.curiosity_module.reset()
         obs = next_obs
 
     return episodic_returns

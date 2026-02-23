@@ -20,6 +20,7 @@ def evaluate(
     epsilon: float = 0.05,
     capture_video: bool = True,
     seed=1,
+    args=None,
 ):
     envs = gym.vector.SyncVectorEnv(
         [make_env(env_id, 0, 0, capture_video, run_name)],
@@ -38,6 +39,7 @@ def evaluate(
 
     episodic_returns = []
     while len(episodic_returns) < eval_episodes:
+        curiosity_rewards = []
         if random.random() < epsilon:
             actions = np.array(
                 [envs.single_action_space.sample() for _ in range(envs.num_envs)]
@@ -47,7 +49,7 @@ def evaluate(
             q_vals = (pmfs * atoms).sum(axis=-1)
             actions = q_vals.argmax(axis=-1)
             actions = jax.device_get(actions)
-        next_obs, _, _, _, infos = envs.step(actions)
+        next_obs, rewards, terminations, truncations, infos = envs.step(actions)
         if "final_info" in infos:
             if isinstance(infos["final_info"], dict):
                 infos["final_info"] = [infos["final_info"]]

@@ -291,24 +291,30 @@ class EmbedBuffer:
         self.buffer = None
         self.reset()
 
-    def save(self):
+    def iterative_save(self):
         if self.save_path is not None and self.buffer is not None:
             os.makedirs(self.save_path, exist_ok=True)
-            torch.save(self.buffer.cpu(), self.save_path + "/embed_buffer.pt")
-            # print(
-            #    f"Saved embed buffer with {self.buffer.shape[0]} entries to {self.save_path}/embed_buffer.pt"
-            # )
+            if os.path.exists(self.save_path + "/embed_buffer.pt"):
+                existing_buffer = torch.load(self.save_path + "/embed_buffer.pt").to(
+                    self.buffer.device
+                )
+                merged_buffer = torch.cat([existing_buffer, self.buffer], dim=0)
+                torch.save(merged_buffer.cpu(), self.save_path + "/embed_buffer.pt")
+            else:
+                torch.save(self.buffer.cpu(), self.save_path + "/embed_buffer.pt")
+            print(
+                f"Saved embed buffer with {self.buffer.shape[0]} entries to {self.save_path}/embed_buffer.pt"
+            )
 
     def load(self):
         if self.load_path is not None:
             if not os.path.exists(self.load_path + "/embed_buffer.pt"):
                 raise ValueError(f"No embed buffer found at {self.load_path}")
-            self.buffer = torch.load(self.load_path).to(
+            self.buffer = torch.load(self.load_path + "/embed_buffer.pt").to(
                 next(self.embedder.parameters()).device
             )
 
     def reset(self):
-        self.save()
         del self.buffer
         self.buffer = None
         self.load()
@@ -404,14 +410,12 @@ class ClusterOnlyBuffer:
             )
         self.reset()
 
-    def save(self):
-        if self.save_path is not None and self.has_fit:
-            os.makedirs(self.save_path, exist_ok=True)
-            with open(self.save_path + "/cluster_buffer.pkl", "wb") as f:
-                pickle.dump(self.clusters, f)
-            # print(
-            #    f"Saved cluster buffer with {self.n_clusters} clusters to {self.save_path}/cluster_buffer.pkl"
-            # )
+    def iterative_save(self):
+        if self.save_path is not None:
+            print(
+                "ClusterOnlyBuffer does not support iterative saving. Clusters are only saved on reset to avoid excessive file I/O. Call save() method on reset instead."
+            )
+        return
 
     def load(self):
         if self.load_path is not None:
@@ -423,7 +427,6 @@ class ClusterOnlyBuffer:
                 self.initial_buffer = None
 
     def reset(self):
-        self.save()
         self.clusters = MiniBatchKMeans(n_clusters=self.n_clusters, random_state=42)
         self.has_fit = False
         self.initial_buffer = None

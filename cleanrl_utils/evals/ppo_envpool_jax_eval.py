@@ -19,6 +19,7 @@ def evaluate(
     Model: nn.Module,
     capture_video: bool = True,
     seed=1,
+    args=None,
 ):
     envs = make_env(env_id, seed, num_envs=1)()
     Network, Actor, Critic = Model
@@ -28,13 +29,27 @@ def evaluate(
     critic = Critic()
     key = jax.random.PRNGKey(seed)
     key, network_key, actor_key, critic_key = jax.random.split(key, 4)
-    network_params = network.init(network_key, np.array([envs.single_observation_space.sample()]))
-    actor_params = actor.init(actor_key, network.apply(network_params, np.array([envs.single_observation_space.sample()])))
-    critic_params = critic.init(critic_key, network.apply(network_params, np.array([envs.single_observation_space.sample()])))
+    network_params = network.init(
+        network_key, np.array([envs.single_observation_space.sample()])
+    )
+    actor_params = actor.init(
+        actor_key,
+        network.apply(
+            network_params, np.array([envs.single_observation_space.sample()])
+        ),
+    )
+    critic_params = critic.init(
+        critic_key,
+        network.apply(
+            network_params, np.array([envs.single_observation_space.sample()])
+        ),
+    )
     # note: critic_params is not used in this script
     with open(model_path, "rb") as f:
-        (args, (network_params, actor_params, critic_params)) = flax.serialization.from_bytes(
-            (None, (network_params, actor_params, critic_params)), f.read()
+        (args, (network_params, actor_params, critic_params)) = (
+            flax.serialization.from_bytes(
+                (None, (network_params, actor_params, critic_params)), f.read()
+            )
         )
 
     @jax.jit
@@ -66,21 +81,29 @@ def evaluate(
             # conversion from grayscale into rgb
             recorded_frames.append(cv2.cvtColor(next_obs[0][-1], cv2.COLOR_GRAY2RGB))
         while not terminated:
-            actions, key = get_action_and_value(network_params, actor_params, next_obs, key)
+            actions, key = get_action_and_value(
+                network_params, actor_params, next_obs, key
+            )
             next_obs, _, _, infos = envs.step(np.array(actions))
             episodic_return += infos["reward"][0]
             terminated = sum(infos["terminated"]) == 1
 
             if capture_video and episode == 0:
-                recorded_frames.append(cv2.cvtColor(next_obs[0][-1], cv2.COLOR_GRAY2RGB))
+                recorded_frames.append(
+                    cv2.cvtColor(next_obs[0][-1], cv2.COLOR_GRAY2RGB)
+                )
 
             if terminated:
-                print(f"eval_episode={len(episodic_returns)}, episodic_return={episodic_return}")
+                print(
+                    f"eval_episode={len(episodic_returns)}, episodic_return={episodic_return}"
+                )
                 episodic_returns.append(episodic_return)
                 if capture_video and episode == 0:
                     clip = ImageSequenceClip(recorded_frames, fps=24)
                     os.makedirs(f"videos/{run_name}", exist_ok=True)
-                    clip.write_videofile(f"videos/{run_name}/{episode}.mp4", logger="bar")
+                    clip.write_videofile(
+                        f"videos/{run_name}/{episode}.mp4", logger="bar"
+                    )
 
     return episodic_returns
 
@@ -91,7 +114,8 @@ if __name__ == "__main__":
     from cleanrl.ppo_atari_envpool_xla_jax_scan import Actor, Critic, Network, make_env
 
     model_path = hf_hub_download(
-        repo_id="vwxyzjn/Pong-v5-ppo_atari_envpool_xla_jax_scan-seed1", filename="ppo_atari_envpool_xla_jax_scan.cleanrl_model"
+        repo_id="vwxyzjn/Pong-v5-ppo_atari_envpool_xla_jax_scan-seed1",
+        filename="ppo_atari_envpool_xla_jax_scan.cleanrl_model",
     )
     evaluate(
         model_path,
