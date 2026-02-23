@@ -225,7 +225,7 @@ if __name__ == "__main__":
                 global_step,
             )
 
-    rb.save(args.replay_buffer_save_folder, run_name)
+    rb.save(args.replay_buffer_save_folder, args.env_id)
     envs.close()
     writer.close()
 

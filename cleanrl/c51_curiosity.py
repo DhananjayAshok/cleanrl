@@ -365,7 +365,7 @@ if __name__ == "__main__":
         torch.save(model_data, model_path)
         print(f"model saved to {model_path}")
 
-    rb.save(args.replay_buffer_save_folder, run_name)
+    rb.save(args.replay_buffer_save_folder, args.env_id)
     envs.close()
     writer.close()
 
