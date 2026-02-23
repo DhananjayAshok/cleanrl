@@ -294,16 +294,18 @@ class EmbedBuffer:
     def iterative_save(self):
         if self.save_path is not None and self.buffer is not None:
             os.makedirs(self.save_path, exist_ok=True)
+            save_size = self.buffer.shape[0]
             if os.path.exists(self.save_path + "/embed_buffer.pt"):
                 existing_buffer = torch.load(self.save_path + "/embed_buffer.pt").to(
                     self.buffer.device
                 )
                 merged_buffer = torch.cat([existing_buffer, self.buffer], dim=0)
+                save_size = merged_buffer.shape[0]
                 torch.save(merged_buffer.cpu(), self.save_path + "/embed_buffer.pt")
             else:
                 torch.save(self.buffer.cpu(), self.save_path + "/embed_buffer.pt")
             print(
-                f"Saved embed buffer with {self.buffer.shape[0]} entries to {self.save_path}/embed_buffer.pt"
+                f"Saved embed buffer with {save_size} entries to {self.save_path}/embed_buffer.pt"
             )
 
     def load(self):
