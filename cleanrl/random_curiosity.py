@@ -64,6 +64,8 @@ class Args:
     """the number of parallel game environments"""
     buffer_size: int = 1000000
     """the replay memory buffer size"""
+    gamma: float = 0.99
+    """ Just for API """
 
     # Curiosity module specific arguments
     curiosity_module: str = "embedbuffer"
