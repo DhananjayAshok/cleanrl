@@ -295,9 +295,14 @@ class EmbedBuffer:
         if self.save_path is not None and self.buffer is not None:
             os.makedirs(self.save_path, exist_ok=True)
             torch.save(self.buffer.cpu(), self.save_path + "/embed_buffer.pt")
+            print(
+                f"Saved embed buffer with {self.buffer.shape[0]} entries to {self.save_path}/embed_buffer.pt"
+            )
 
     def load(self):
         if self.load_path is not None:
+            if not os.path.exists(self.load_path + "/embed_buffer.pt"):
+                raise ValueError(f"No embed buffer found at {self.load_path}")
             self.buffer = torch.load(self.load_path).to(
                 next(self.embedder.parameters()).device
             )
@@ -404,9 +409,14 @@ class ClusterOnlyBuffer:
             os.makedirs(self.save_path, exist_ok=True)
             with open(self.save_path + "/cluster_buffer.pkl", "wb") as f:
                 pickle.dump(self.clusters, f)
+            print(
+                f"Saved cluster buffer with {self.n_clusters} clusters to {self.save_path}/cluster_buffer.pkl"
+            )
 
     def load(self):
         if self.load_path is not None:
+            if not os.path.exists(self.load_path + "/cluster_buffer.pkl"):
+                raise ValueError(f"No cluster buffer found at {self.load_path}")
             with open(self.load_path + "/cluster_buffer.pkl", "rb") as f:
                 self.clusters = pickle.load(f)
                 self.has_fit = True
