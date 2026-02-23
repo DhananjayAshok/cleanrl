@@ -189,6 +189,17 @@ def sac_curiosity():
     )
 
 
+def random_curiosity():
+    import cleanrl.random_curiosity
+    import cleanrl_utils.evals.random_eval
+
+    return (
+        None,
+        cleanrl.random_curiosity.make_env,
+        cleanrl_utils.evals.random_eval.evaluate,
+    )
+
+
 MODELS = {
     "dqn": dqn,
     "dqn_atari": dqn_atari,
@@ -207,4 +218,5 @@ MODELS = {
     "sac_curiosity": sac_curiosity,
     "rainbow_atari": rainbow_atari,
     "rainbow_curiosity": rainbow_curiosity,
+    "random_curiosity": random_curiosity,
 }

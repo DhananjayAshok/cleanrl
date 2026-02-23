@@ -20,8 +20,11 @@ from cleanrl_utils.atari_wrappers import (
     MaxAndSkipEnv,
     NoopResetEnv,
 )
-from cleanrl_utils.buffers import ReplayBuffer
-from cleanrl_utils.port_poke_worlds import get_curiosity_module, get_gameboy_cnn_chain
+from cleanrl_utils.port_poke_worlds import (
+    get_curiosity_module,
+    get_gameboy_cnn_chain,
+    PokemonReplayBuffer as ReplayBuffer,
+)
 
 
 @dataclass
@@ -87,13 +90,19 @@ class Args:
 
     # Curiosity module specific arguments
     curiosity_module: str = "embedbuffer"
-    """the type of curiosity module to use. Options are: 'embedbuffer', 'clusterbuffer', 'world_model'"""
-    observation_embedder: str = "cnn"
+    """the type of curiosity module to use."""
+    observation_embedder: str = "random_patch"
     """the type of observation embedder to use for the curiosity module."""
-    reset_curiosity_module: bool = False
+    reset_curiosity_module: bool = True
     """whether to reset the curiosity module at the end of each episode"""
     similarity_metric: str = "cosine"
     """the similarity metric to use for the EmbedBuffer curiosity module."""
+    buffer_save_path: str | None = None
+    """ path to save the curiosity module's buffer """
+    buffer_load_path: str | None = None
+    """ path to load the curiosity module's buffer from """
+    replay_buffer_save_folder: str | None = None
+    """ folder to save the replay buffer """
 
 
 def make_env(env_id, seed, idx, capture_video, run_name, gamma=0.99):
@@ -161,6 +170,9 @@ def linear_schedule(start_e: float, end_e: float, duration: int, t: int):
 if __name__ == "__main__":
     args = tyro.cli(Args)
     assert args.num_envs == 1, "vectorized envs are not supported at the moment"
+    assert (
+        args.buffer_save_path is None or args.buffer_save_path != args.buffer_load_path
+    ), "buffer save path and load path cannot be the same for this algorithm."
     run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
     if args.track:
         import wandb
@@ -353,6 +365,7 @@ if __name__ == "__main__":
         torch.save(model_data, model_path)
         print(f"model saved to {model_path}")
 
+    rb.save(args.replay_buffer_save_folder, run_name)
     envs.close()
     writer.close()
 

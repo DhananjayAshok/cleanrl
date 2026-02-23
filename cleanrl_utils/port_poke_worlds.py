@@ -7,6 +7,9 @@ import torch
 import torch.nn as nn
 from typing import List
 from sklearn.cluster import MiniBatchKMeans, KMeans
+import os
+import pickle
+from cleanrl_utils.buffers import ReplayBuffer
 
 
 class OneOfToDiscreteWrapper(gym.ActionWrapper):
@@ -263,9 +266,22 @@ def get_passed_frames(infos) -> np.ndarray:
 
 
 class EmbedBuffer:
-    def __init__(self, embedder, similarity_metric="cosine", max_size=10_000):
+    def __init__(
+        self,
+        embedder,
+        similarity_metric="cosine",
+        load_path=None,
+        save_path=None,
+        max_size=10_000,
+    ):
         self.max_size = max_size
         self.embedder = embedder
+        self.save_path = save_path
+        self.load_path = load_path
+        if self.save_path is not None and self.save_path == self.load_path:
+            print(
+                f"Warning: save_path and load_path are the same. This means the buffer will be overwritten on reset and grow over time. This should only be used with a random agent to accumilate base observation data."
+            )
         similarity_options = ["cosine", "distance", "hinge"]
         if similarity_metric not in similarity_options:
             raise ValueError(
@@ -275,9 +291,22 @@ class EmbedBuffer:
         self.buffer = None
         self.reset()
 
+    def save(self):
+        if self.save_path is not None and self.buffer is not None:
+            os.makedirs(self.save_path, exist_ok=True)
+            torch.save(self.buffer.cpu(), self.save_path + "/embed_buffer.pt")
+
+    def load(self):
+        if self.load_path is not None:
+            self.buffer = torch.load(self.load_path).to(
+                next(self.embedder.parameters()).device
+            )
+
     def reset(self):
+        self.save()
         del self.buffer
         self.buffer = None
+        self.load()
 
     def add(self, items: np.ndarray, embeddings=None):
         if self.buffer is None:
@@ -359,15 +388,36 @@ class EmbedBuffer:
 
 
 class ClusterOnlyBuffer:
-    def __init__(self, embedder, n_clusters=100):
+    def __init__(self, embedder, load_path=None, save_path=None, n_clusters=100):
         self.embedder = embedder
         self.n_clusters = n_clusters
+        self.save_path = save_path
+        self.load_path = load_path
+        if self.save_path is not None and self.save_path == self.load_path:
+            print(
+                f"Warning: save_path and load_path are the same. This means the buffer will be overwritten on reset and grow over time. This should only be used with a random agent to accumilate base observation data."
+            )
         self.reset()
 
+    def save(self):
+        if self.save_path is not None and self.has_fit:
+            os.makedirs(self.save_path, exist_ok=True)
+            with open(self.save_path + "/cluster_buffer.pkl", "wb") as f:
+                pickle.dump(self.clusters, f)
+
+    def load(self):
+        if self.load_path is not None:
+            with open(self.load_path + "/cluster_buffer.pkl", "rb") as f:
+                self.clusters = pickle.load(f)
+                self.has_fit = True
+                self.initial_buffer = None
+
     def reset(self):
+        self.save()
         self.clusters = MiniBatchKMeans(n_clusters=self.n_clusters, random_state=42)
         self.has_fit = False
         self.initial_buffer = None
+        self.load()
 
     def add(self, items: np.ndarray):
         if self.has_fit:
@@ -411,9 +461,80 @@ def get_curiosity_module(args):
         )
     if "buffer" in args.curiosity_module:
         if args.curiosity_module == "embedbuffer":
-            module = EmbedBuffer(embedder, similarity_metric=args.similarity_metric)
+            module = EmbedBuffer(
+                embedder,
+                similarity_metric=args.similarity_metric,
+                save_path=args.buffer_save_path,
+                load_path=args.buffer_load_path,
+            )
         elif args.curiosity_module == "clusterbuffer":
-            module = ClusterOnlyBuffer(embedder=embedder)
+            module = ClusterOnlyBuffer(
+                embedder=embedder,
+                save_path=args.buffer_save_path,
+                load_path=args.buffer_load_path,
+            )
     elif args.curiosity_module == "world_model":
         module = WorldModel(embedder=embedder)
     return module
+
+
+class PokemonReplayBuffer(ReplayBuffer):
+    def __init__(
+        self,
+        buffer_size: int,
+        observation_space,
+        action_space,
+        device="auto",
+        n_envs=1,
+        optimize_memory_usage: bool = False,
+        handle_timeout_termination: bool = True,
+    ):
+        super().__init__(
+            buffer_size=buffer_size,
+            observation_space=observation_space,
+            action_space=action_space,
+            device=device,
+            n_envs=n_envs,
+            optimize_memory_usage=optimize_memory_usage,
+            handle_timeout_termination=handle_timeout_termination,
+        )
+        self.screens = np.zeros(
+            (self.buffer_size, self.n_envs, 144, 160),
+            dtype=np.int8,
+        )
+
+    def reset(self):
+        self.screens = np.zeros(
+            (self.buffer_size, self.n_envs, 144, 160),
+            dtype=np.int8,
+        )
+        super().reset()
+
+    def add(
+        self,
+        obs: np.ndarray,
+        next_obs: np.ndarray,
+        action: np.ndarray,
+        reward: np.ndarray,
+        done: np.ndarray,
+        infos,
+    ):
+        super().add(obs, next_obs, action, reward, done, infos)
+        self.screens[self.pos, 0] = get_passed_frames(infos)[-1].reshape(
+            144, 160
+        )  # assumes only one env TODO: Check
+
+    def save(self, save_folder, run_name):
+        if save_folder is not None:
+            save_path = f"{save_folder}/{run_name}/"
+            os.makedirs(save_path, exist_ok=True)
+            if self.full:
+                np.save(save_path + "/observations.npy", self.observations)
+                np.save(save_path + "/actions.npy", self.actions)
+                np.save(save_path + "/rewards.npy", self.rewards)
+                np.save(save_path + "/screens.npy", self.screens)
+            else:
+                np.save(save_path + "/observations.npy", self.observations[: self.pos])
+                np.save(save_path + "/actions.npy", self.actions[: self.pos])
+                np.save(save_path + "/rewards.npy", self.rewards[: self.pos])
+                np.save(save_path + "/screens.npy", self.screens[: self.pos])

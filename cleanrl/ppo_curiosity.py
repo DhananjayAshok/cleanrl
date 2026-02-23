@@ -85,13 +85,19 @@ class Args:
 
     # Curiosity module specific arguments
     curiosity_module: str = "embedbuffer"
-    """the type of curiosity module to use. Options are: 'embedbuffer', 'clusterbuffer', 'world_model'"""
-    observation_embedder: str = "cnn"
+    """the type of curiosity module to use."""
+    observation_embedder: str = "random_patch"
     """the type of observation embedder to use for the curiosity module."""
-    reset_curiosity_module: bool = False
+    reset_curiosity_module: bool = True
     """whether to reset the curiosity module at the end of each episode"""
     similarity_metric: str = "cosine"
     """the similarity metric to use for the EmbedBuffer curiosity module."""
+    buffer_save_path: str | None = None
+    """ path to save the curiosity module's buffer """
+    buffer_load_path: str | None = None
+    """ path to load the curiosity module's buffer from """
+    replay_buffer_save_folder: str | None = None
+    """ folder to save the replay buffer """
 
     # to be filled in runtime
     batch_size: int = 0
@@ -161,6 +167,9 @@ class Agent(nn.Module):
 if __name__ == "__main__":
     args = tyro.cli(Args)
     assert args.num_envs == 1, "vectorized envs are not supported at the moment"
+    assert (
+        args.buffer_save_path is None or args.buffer_save_path != args.buffer_load_path
+    ), "buffer save path and load path cannot be the same for this algorithm."
     args.batch_size = int(args.num_envs * args.num_steps)
     args.minibatch_size = int(args.batch_size // args.num_minibatches)
     args.num_iterations = max(args.total_timesteps // args.batch_size, 1)
