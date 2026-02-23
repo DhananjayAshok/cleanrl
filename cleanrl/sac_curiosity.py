@@ -196,7 +196,7 @@ if __name__ == "__main__":
     assert (
         args.buffer_save_path is None or args.buffer_save_path != args.buffer_load_path
     ), "buffer save path and load path cannot be the same for this algorithm."
-    run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
+    run_name = f"{args.exp_name}__{args.seed}__{int(time.time())}"
     if args.track:
         import wandb
 
@@ -424,7 +424,7 @@ if __name__ == "__main__":
                         "losses/alpha_loss", alpha_loss.item(), global_step
                     )
 
-    rb.save(args.replay_buffer_save_folder, args.env_id)
+    rb.save(args.replay_buffer_save_folder, args.exp_name)
     envs.close()
     writer.close()
 
