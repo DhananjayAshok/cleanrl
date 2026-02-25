@@ -515,14 +515,18 @@ class PokemonReplayBuffer(ReplayBuffer):
         )
         self.screens = np.zeros(
             (self.buffer_size, self.n_envs, 144, 160),
-            dtype=np.int8,
+            dtype=np.uint8,
         )
+        self.steps = -np.ones((self.buffer_size, self.n_envs), dtype=np.uint16)
+        self.step_counts = np.zeros((self.n_envs,), dtype=np.uint16)
 
     def reset(self):
         self.screens = np.zeros(
             (self.buffer_size, self.n_envs, 144, 160),
-            dtype=np.int8,
+            dtype=np.uint8,
         )
+        self.steps = -np.ones((self.buffer_size, self.n_envs), dtype=np.uint16)
+        self.step_counts = np.zeros((self.n_envs,), dtype=np.uint16)
         super().reset()
 
     def add(
@@ -535,9 +539,11 @@ class PokemonReplayBuffer(ReplayBuffer):
         infos,
     ):
         super().add(obs, next_obs, action, reward, done, infos)
-        self.screens[self.pos, 0] = get_passed_frames(infos)[-1].reshape(
-            144, 160
-        )  # assumes only one env TODO: Check
+        self.screens[self.pos, 0] = get_passed_frames(infos)[-1].reshape(144, 160)
+        done = "final_info" in infos
+        self.steps[self.pos, :] = self.step_counts.copy()
+        self.step_counts += 1
+        self.step_counts = self.step_counts * (1 - done)  # reset step count on done
 
     def save(self, save_folder, run_name):
         if save_folder is not None:
@@ -549,11 +555,13 @@ class PokemonReplayBuffer(ReplayBuffer):
                 np.save(save_path + "/actions.npy", self.actions)
                 np.save(save_path + "/rewards.npy", self.rewards)
                 np.save(save_path + "/screens.npy", self.screens)
+                np.save(save_path + "/steps.npy", self.steps)
                 save_size = self.buffer_size
             else:
                 np.save(save_path + "/observations.npy", self.observations[: self.pos])
                 np.save(save_path + "/actions.npy", self.actions[: self.pos])
                 np.save(save_path + "/rewards.npy", self.rewards[: self.pos])
                 np.save(save_path + "/screens.npy", self.screens[: self.pos])
+                np.save(save_path + "/steps.npy", self.steps[: self.pos])
                 save_size = self.pos
             print(f"Saved replay buffer with {save_size} entries to {save_path}")
