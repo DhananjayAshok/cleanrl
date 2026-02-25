@@ -538,12 +538,13 @@ class PokemonReplayBuffer(ReplayBuffer):
         done: np.ndarray,
         infos,
     ):
-        super().add(obs, next_obs, action, reward, done, infos)
-        self.screens[self.pos, 0] = get_passed_frames(infos)[-1].reshape(144, 160)
         done = "final_info" in infos
+        self.screens[self.pos, 0] = get_passed_frames(infos)[-1].reshape(144, 160)
         self.steps[self.pos, :] = self.step_counts.copy()
+
         self.step_counts += 1
         self.step_counts = self.step_counts * (1 - done)  # reset step count on done
+        super().add(obs, next_obs, action, reward, done, infos)
 
     def save(self, save_folder, run_name):
         if save_folder is not None:
