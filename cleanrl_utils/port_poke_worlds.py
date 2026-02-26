@@ -526,18 +526,19 @@ class PokemonReplayBuffer(ReplayBuffer):
             optimize_memory_usage=optimize_memory_usage,
             handle_timeout_termination=handle_timeout_termination,
         )
-        self.screens = np.zeros(
-            (self.buffer_size, self.n_envs, 144, 160),
-            dtype=np.uint8,
-        )
+        # self.screens = np.zeros(
+        #    (self.buffer_size, self.n_envs, 144, 160),
+        #    dtype=np.uint8,
+        # )
+        # screens not needed because its always the last element of the observations
         self.steps = -np.ones((self.buffer_size, self.n_envs), dtype=np.uint16)
         self.step_counts = np.zeros((self.n_envs,), dtype=np.uint16)
 
     def reset(self):
-        self.screens = np.zeros(
-            (self.buffer_size, self.n_envs, 144, 160),
-            dtype=np.uint8,
-        )
+        # self.screens = np.zeros(
+        #    (self.buffer_size, self.n_envs, 144, 160),
+        #    dtype=np.uint8,
+        # )
         self.steps = -np.ones((self.buffer_size, self.n_envs), dtype=np.uint16)
         self.step_counts = np.zeros((self.n_envs,), dtype=np.uint16)
         super().reset()
@@ -552,7 +553,7 @@ class PokemonReplayBuffer(ReplayBuffer):
         infos,
     ):
         done = "final_info" in infos
-        self.screens[self.pos, 0] = get_passed_frames(infos)[-1].reshape(144, 160)
+        # self.screens[self.pos, 0] = get_passed_frames(infos)[-1].reshape(144, 160)
         self.steps[self.pos, :] = self.step_counts.copy()
 
         self.step_counts += 1
@@ -560,6 +561,7 @@ class PokemonReplayBuffer(ReplayBuffer):
         super().add(obs, next_obs, action, reward, done, infos)
 
     def save(self, save_folder, run_name):
+        print("Saving replay buffer...")
         if save_folder is not None:
             save_path = f"{save_folder}/{run_name}/"
             os.makedirs(save_path, exist_ok=True)
@@ -568,14 +570,13 @@ class PokemonReplayBuffer(ReplayBuffer):
                 np.save(save_path + "/observations.npy", self.observations)
                 np.save(save_path + "/actions.npy", self.actions)
                 np.save(save_path + "/rewards.npy", self.rewards)
-                np.save(save_path + "/screens.npy", self.screens)
+                # np.save(save_path + "/screens.npy", self.screens)
                 np.save(save_path + "/steps.npy", self.steps)
                 save_size = self.buffer_size
                 save_outliers(
                     self.observations,
                     self.actions,
                     self.rewards,
-                    self.screens,
                     self.steps,
                     save_folder,
                     run_name,
@@ -584,14 +585,13 @@ class PokemonReplayBuffer(ReplayBuffer):
                 np.save(save_path + "/observations.npy", self.observations[: self.pos])
                 np.save(save_path + "/actions.npy", self.actions[: self.pos])
                 np.save(save_path + "/rewards.npy", self.rewards[: self.pos])
-                np.save(save_path + "/screens.npy", self.screens[: self.pos])
+                # np.save(save_path + "/screens.npy", self.screens[: self.pos])
                 np.save(save_path + "/steps.npy", self.steps[: self.pos])
                 save_size = self.pos
                 save_outliers(
                     self.observations[: self.pos],
                     self.actions[: self.pos],
                     self.rewards[: self.pos],
-                    self.screens[: self.pos],
                     self.steps[: self.pos],
                     save_folder,
                     run_name,
@@ -630,13 +630,13 @@ def save_outliers(
     observations,
     actions,
     rewards,
-    screens,
     steps,
     save_folder,
     run_name,
     n_samples=20,
     outlier_threshold=2,
 ):
+    print("Analyzing rewards for outliers and visualization...")
     load_path = f"{save_folder}/{run_name}/"
     new_episode_indices = np.where(steps == 0)[0]
     last_step_indices = new_episode_indices - 1
