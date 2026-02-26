@@ -116,6 +116,17 @@ def get_poke_worlds_environment(id_string, render_mode=None):
     return env
 
 
+def get_pokeworlds_n_actions(id_string=None):
+    if len(OneOfToDiscreteWrapper.STATIC_MAP) == 0:
+        if id_string is not None:
+            _ = get_poke_worlds_environment(id_string)
+        else:
+            raise ValueError(
+                f"STATIC_MAP not initialized yet! Please provide an id_string to initialize the environment and action mapping."
+            )
+    return len(OneOfToDiscreteWrapper.STATIC_MAP)
+
+
 def poke_worlds_make_env(env_id, seed, idx, capture_video, run_name, gamma=0.99):
     def thunk():
         if capture_video and idx == 0:
@@ -236,38 +247,80 @@ class CNNEmbedder(nn.Module):
 
 
 class WorldModel(nn.Module):
-    def __init__(self, embedder, hidden_dim=512, normalized_observations=True):
+    def __init__(
+        self,
+        embedder,
+        hidden_dim=512,
+        normalized_observations=True,
+        load_path=None,
+        save_path=None,
+        env_id=None,
+    ):
         super().__init__()
         self.embedder = embedder
-        observation_dim = embedder.output_dim
+        self.model = None
+        self.hidden_dim = hidden_dim
+        self.normalized_observations = normalized_observations
+        self.save_path = save_path
+        self.load_path = load_path
+        if env_id is not None:
+            action_dim = get_pokeworlds_n_actions(env_id)
+            self.create_model(action_dim)
+
+    def create_model(self, action_dim):
+        observation_dim = self.embedder.output_dim
+        self.action_dim = action_dim
+        hidden_dim = self.hidden_dim
         self.model = nn.Sequential(
-            nn.Linear(observation_dim + 1, hidden_dim),  # +1 for action
+            nn.Linear(observation_dim + action_dim, hidden_dim),
             nn.ReLU(),
             nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU(),
             nn.Linear(hidden_dim, observation_dim),
         )
-        self.normalized_observations = normalized_observations
 
-    def forward(self, raw_obs, action):
-        with torch.no_grad():
-            obs = self.embedder.embed(raw_obs)
-        x = torch.cat([obs, action], dim=-1)
+    def forward(self, x):
+        """x should be concatenated embedding and action tensor of shape (batch_size, observation_dim + 1)"""
         next_obs_pred = self.model(x)
         if self.normalized_observations:
             next_obs_pred = nn.functional.normalize(next_obs_pred, dim=-1)
         return next_obs_pred
 
+    def predict(self, raw_obs, action):
+        if self.model is None:
+            self.create_model()
+        with torch.no_grad():
+            obs = self.embedder.embed(raw_obs)
+            action_vector = torch.zeros(
+                self.action_dim, dtype=obs.dtype, device=obs.device
+            )
+            action_vector[action] = 1.0  # one-hot encode the action
+            x = torch.cat([obs, action_vector], dim=-1)
+            output = self.forward(x)
+        return output
+
     def get_reward(self, obs, actions, next_obs, infos) -> float:
         with torch.no_grad():
             next_obs_embed = self.embedder.embed(next_obs)
-            predicted_next_obs_embed = self.forward(obs, actions)
+            predicted_next_obs_embed = self.predict(raw_obs=obs, action=actions)
         # reward is the error in the embedding space
         reward = torch.norm(predicted_next_obs_embed - next_obs_embed, dim=-1).item()
         return reward
 
     def reset(self):
-        pass  # I don't think world model needs to reset anything, but we include this method for API consistency with the other curiosity modules.
+        if self.load_path is not None and self.model is None:
+            self.load()
+
+    def save(self):
+        pass  # We don't save here, but only in train_world_model.py
+
+    def load(self):
+        self.create_model(
+            action_dim=get_pokeworlds_n_actions()
+        )  # this is safe because it is only called after the STATIC_MAP is initialized by creating an environment, which happens in the training loop before the world model is used.
+        loaded_state = torch.load(self.load_path)
+        self.model.load_state_dict(loaded_state)
+        print(f"Loaded world model from {self.load_path}")
 
 
 def get_passed_frames(infos) -> np.ndarray:
@@ -642,7 +695,9 @@ def save_outliers(
     last_step_indices = new_episode_indices - 1
     # replace -1 values with the last index of the buffer for the first episode
     minus_one_indices = np.where(last_step_indices == -1)[0]
-    last_step_indices[minus_one_indices] = len(steps) - 1
+    if len(minus_one_indices) > 0:
+        last_step_indices[minus_one_indices] = len(steps) - 1
+    np.save(load_path + "last_step_indices.npy", last_step_indices)
     reward_mean = np.nanmean(rewards)
     reward_std = np.nanstd(rewards)
     rewards[new_episode_indices] = reward_mean
