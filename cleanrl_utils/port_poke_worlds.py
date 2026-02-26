@@ -653,6 +653,7 @@ def save_outliers(
     # identify the indices of the top and bottom n_samples rewards
     sorted_indices = np.argsort(normalized_rewards, axis=0)
     top_sample_indices = sorted_indices[-n_samples:]
+    top_sample_indices = top_sample_indices[::-1]
     bottom_sample_indices = sorted_indices[:n_samples]
     high_reward_indices = np.where(normalized_rewards > outlier_threshold)[0]
     if len(high_reward_indices) > 0:
