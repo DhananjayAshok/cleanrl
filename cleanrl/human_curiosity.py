@@ -85,6 +85,19 @@ class Args:
     """ folder to save the replay buffer """
 
 
+"""
+{
+0: (<class 'poke_worlds.interface.action.LowLevelAction'>, {'low_level_action': <LowLevelActions.PRESS_ARROW_DOWN: 2>}), 
+1: (<class 'poke_worlds.interface.action.LowLevelAction'>, {'low_level_action': <LowLevelActions.PRESS_ARROW_LEFT: 4>}), 
+2: (<class 'poke_worlds.interface.action.LowLevelAction'>, {'low_level_action': <LowLevelActions.PRESS_ARROW_RIGHT: 3>}), 
+3: (<class 'poke_worlds.interface.action.LowLevelAction'>, {'low_level_action': <LowLevelActions.PRESS_ARROW_UP: 1>}), 
+4: (<class 'poke_worlds.interface.action.LowLevelAction'>, {'low_level_action': <LowLevelActions.PRESS_BUTTON_A: 5>}), 
+5: (<class 'poke_worlds.interface.action.LowLevelAction'>, {'low_level_action': <LowLevelActions.PRESS_BUTTON_B: 6>}), 
+6: (<class 'poke_worlds.interface.action.LowLevelAction'>, {'low_level_action': <LowLevelActions.PRESS_BUTTON_START: 8>})
+}
+"""
+
+
 def make_env(env_id, seed, idx, capture_video, run_name, gamma=0.99):
     if env_id.startswith("poke_worlds"):
         from cleanrl_utils.port_poke_worlds import poke_worlds_make_env
