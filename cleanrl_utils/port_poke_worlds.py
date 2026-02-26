@@ -10,9 +10,13 @@ from sklearn.cluster import MiniBatchKMeans, KMeans
 import os
 import pickle
 from cleanrl_utils.buffers import ReplayBuffer
+from matplotlib import pyplot as plt
 
 
 class OneOfToDiscreteWrapper(gym.ActionWrapper):
+    STATIC_MAP = {}
+    """ Set on init to allow static access of a dict mapping actions to HighLevelActions """
+
     def __init__(self, env):
         super().__init__(env)
         # Calculate total actions across all sub-spaces
@@ -21,6 +25,9 @@ class OneOfToDiscreteWrapper(gym.ActionWrapper):
         self.sub_spaces = env.action_space.spaces
         self.total_actions = sum(s.n for s in self.sub_spaces)
         self.action_space = Discrete(self.total_actions)
+        for action in range(self.action_space.n):
+            high_level_action, kwargs = self.get_high_level_action(action)
+            OneOfToDiscreteWrapper.STATIC_MAP[action] = (high_level_action, kwargs)
 
     def action(self, action):
         # Map the single integer back to (choice, sub_action)
@@ -42,6 +49,12 @@ class OneOfToDiscreteWrapper(gym.ActionWrapper):
 
     def set_render_mode(self, mode):
         self.internal_env.render_mode = mode
+
+    @staticmethod
+    def get_high_level_action_static(action):
+        if len(OneOfToDiscreteWrapper.STATIC_MAP) == 0:
+            raise ValueError("STATIC_MAP not initialized yet!")
+        return OneOfToDiscreteWrapper.STATIC_MAP[action]
 
 
 def parse_pokeworlds_id_string(id_string):
@@ -558,6 +571,15 @@ class PokemonReplayBuffer(ReplayBuffer):
                 np.save(save_path + "/screens.npy", self.screens)
                 np.save(save_path + "/steps.npy", self.steps)
                 save_size = self.buffer_size
+                save_outliers(
+                    self.observations,
+                    self.actions,
+                    self.rewards,
+                    self.screens,
+                    self.steps,
+                    save_folder,
+                    run_name,
+                )
             else:
                 np.save(save_path + "/observations.npy", self.observations[: self.pos])
                 np.save(save_path + "/actions.npy", self.actions[: self.pos])
@@ -565,4 +587,115 @@ class PokemonReplayBuffer(ReplayBuffer):
                 np.save(save_path + "/screens.npy", self.screens[: self.pos])
                 np.save(save_path + "/steps.npy", self.steps[: self.pos])
                 save_size = self.pos
+                save_outliers(
+                    self.observations[: self.pos],
+                    self.actions[: self.pos],
+                    self.rewards[: self.pos],
+                    self.screens[: self.pos],
+                    self.steps[: self.pos],
+                    save_folder,
+                    run_name,
+                )
             print(f"Saved replay buffer with {save_size} entries to {save_path}")
+
+
+def stacked_frame_to_single(observation):
+    # observation shape is (4, 144, 160)
+    # We want to convert it to a (144 x 4, 160) image where each of the 4 frames is stacked vertically. This is just for visualization purposes.
+    all_obs = observation.reshape(4, 144, 160)
+    show_obs = np.zeros((144 * 4, 160), dtype=np.uint8)
+    for i in range(4):
+        show_obs[i * 144 : (i + 1) * 144] = all_obs[i]
+    return show_obs
+
+
+def visualize_transition(observation, new_observation, action, reward, step, save_path):
+    obs_single = stacked_frame_to_single(observation)
+    new_obs_single = stacked_frame_to_single(new_observation)
+    fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+    axes[0].imshow(obs_single, cmap="gray")
+    action_class, action_kwargs = OneOfToDiscreteWrapper.get_high_level_action_static(
+        action.reshape(-1)[0]
+    )
+    action = action_kwargs
+    axes[0].set_title(f"\nStep {step.reshape(-1)[0]}\nObservation\nAction: {action}")
+    axes[1].imshow(new_obs_single, cmap="gray")
+    axes[1].set_title(f"New Observation\nReward: {reward.reshape(-1)[0]}")
+    plt.tight_layout()
+    plt.savefig(save_path)
+    plt.close()
+
+
+def save_outliers(
+    observations,
+    actions,
+    rewards,
+    screens,
+    steps,
+    save_folder,
+    run_name,
+    n_samples=20,
+    outlier_threshold=2,
+):
+    load_path = f"{save_folder}/{run_name}/"
+    new_episode_indices = np.where(steps == 0)[0]
+    last_step_indices = new_episode_indices - 1
+    # replace -1 values with the last index of the buffer for the first episode
+    minus_one_indices = np.where(last_step_indices == -1)[0]
+    last_step_indices[minus_one_indices] = len(steps) - 1
+    reward_mean = np.nanmean(rewards)
+    reward_std = np.nanstd(rewards)
+    rewards[new_episode_indices] = reward_mean
+    rewards[last_step_indices] = reward_mean
+    reward_mean = rewards.mean()
+    reward_std = rewards.std()
+    normalized_rewards = (rewards - reward_mean) / (reward_std + 1e-8)
+    # identify the indices of the top and bottom n_samples rewards
+    sorted_indices = np.argsort(normalized_rewards, axis=0)
+    top_sample_indices = sorted_indices[-n_samples:]
+    bottom_sample_indices = sorted_indices[:n_samples]
+    high_reward_indices = np.where(normalized_rewards > outlier_threshold)[0]
+    if len(high_reward_indices) > 0:
+        np.save(load_path + "high_reward_indices.npy", high_reward_indices)
+        print(
+            f"Saved {len(high_reward_indices)} reward indices to {load_path + 'high_reward_indices.npy'}"
+        )
+    else:
+        print("No high reward outliers found.")
+
+    save_path = f"{save_folder}/{run_name}/transition_visualizations/"
+    os.makedirs(save_path, exist_ok=True)
+    for i in range(n_samples):
+        observation, new_observation, action, reward, step = (
+            observations[top_sample_indices[i]],
+            observations[top_sample_indices[i] + 1],
+            actions[top_sample_indices[i]],
+            rewards[top_sample_indices[i]],
+            steps[top_sample_indices[i]],
+        )
+        visualize_transition(
+            observation,
+            new_observation,
+            action,
+            reward,
+            step,
+            save_path + f"top_transition_{i}.png",
+        )
+        observation, new_observation, action, reward, step = (
+            observations[bottom_sample_indices[i]],
+            observations[bottom_sample_indices[i] + 1],
+            actions[bottom_sample_indices[i]],
+            rewards[bottom_sample_indices[i]],
+            steps[bottom_sample_indices[i]],
+        )
+        visualize_transition(
+            observation,
+            new_observation,
+            action,
+            reward,
+            step,
+            save_path + f"bottom_transition_{i}.png",
+        )
+    print(
+        f"Saved transition visualizations for top and bottom {n_samples} rewards to {save_path}"
+    )
