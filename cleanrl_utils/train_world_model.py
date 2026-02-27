@@ -110,10 +110,10 @@ class WorldModelDataset(Dataset):
     def get_embedder(self, args):
         if args.observation_embedder == "random_patch":
             observation_embedder = PatchProjection(normalized_observations=True).to(
-                device
+                "cuda"
             )
         elif args.observation_embedder == "cnn":
-            observation_embedder = CNNEmbedder(normalized_observations=True).to(device)
+            observation_embedder = CNNEmbedder(normalized_observations=True).to("cuda")
             # TODO: Figure out loading later.
         else:
             raise ValueError(
@@ -139,20 +139,22 @@ class WorldModelDataset(Dataset):
                 if i in last_steps:
                     continue  # skip the last step of each episode since we don't have a next observation for it
                 obs = observations[i]
-                action = actions[i]
+                action = actions[i].item()
                 if i + 1 < len(observations):
-                    next_obs = observations[i + 1]
+                    next_obs = observations[i + 1][
+                        0, -1
+                    ]  # Get the most recent frame from the obs stack. Assumes a single env.
                 else:
-                    next_obs = observations[0]
-                obs_tensor = embedder.embed(obs)
+                    next_obs = observations[0][0, -1]
+                obs_tensor = embedder.embed(obs).reshape(-1).to("cpu")
                 action_tensor = torch.zeros(action_dim, dtype=torch.float16)
                 action_tensor[action] = 1.0  # one-hot encode the action
-                next_obs_tensor = embedder.embed(next_obs)
+                next_obs_tensor = embedder.embed(next_obs).to("cpu").reshape(-1)
                 X_vec = torch.cat([obs_tensor, action_tensor])
                 X.append(X_vec)
                 y.append(next_obs_tensor)
-            X = torch.stack(X)
-            y = torch.stack(y)
+            X = torch.stack(X).cpu()
+            y = torch.stack(y).cpu()
             torch.save(X, buffer_path + "/X.pt")
             torch.save(y, buffer_path + "/y.pt")
             buffer_lengths.append(len(y))
@@ -234,7 +236,6 @@ if __name__ == "__main__":
             train_dataloader, desc="Epoch {epoch} - Training", leave=False
         ):
             optimizer.zero_grad()
-            breakpoint()  # TODO: This will fail rn because world_model shape didn't take into account the frame stacking.
             pred_next_obs = world_model(X_batch)
             loss = F.mse_loss(pred_next_obs, y_batch)
             loss.backward()
