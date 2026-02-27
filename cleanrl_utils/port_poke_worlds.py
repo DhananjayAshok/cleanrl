@@ -168,7 +168,6 @@ class PatchProjection(nn.Module):
         )
         self.output_dim = 90 * 4
         self.dtype = self.project[0].weight.dtype
-        self.device = self.project[0].weight.device
 
     def forward(self, x):
         vector = self.project(x)
@@ -182,7 +181,7 @@ class PatchProjection(nn.Module):
             batch_tensor = torch.tensor(
                 items.reshape(-1, 1, 144, 160),
             )
-        batch_tensor = batch_tensor.to(self.dtype).to(self.device)
+        batch_tensor = batch_tensor.to(self.dtype).to(next(self.parameters()).device)
         embeddings = self(batch_tensor)
         return embeddings
 
@@ -363,7 +362,7 @@ class EmbedBuffer:
             save_size = self.buffer.shape[0]
             if os.path.exists(self.save_path + "/embed_buffer.pt"):
                 existing_buffer = torch.load(self.save_path + "/embed_buffer.pt").to(
-                    self.buffer.device
+                    next(self.embedder.parameters()).device
                 )
                 merged_buffer = torch.cat([existing_buffer, self.buffer], dim=0)
                 save_size = merged_buffer.shape[0]
@@ -420,7 +419,9 @@ class EmbedBuffer:
         kmeans = KMeans(n_clusters=target_size, random_state=42)
         kmeans.fit(self.buffer.cpu().numpy())
         self.buffer = torch.tensor(
-            kmeans.cluster_centers_, dtype=self.buffer.dtype, device=self.buffer.device
+            kmeans.cluster_centers_,
+            dtype=self.buffer.dtype,
+            device=next(self.buffer.parameters()).device,
         )
 
     def get_reward(self, obs, actions, next_obs, infos) -> float:
