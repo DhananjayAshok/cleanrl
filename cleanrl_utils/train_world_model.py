@@ -68,6 +68,8 @@ class Args:
     """ weight decay to use for training the world model """
     early_stopping_patience: int = 3
     """ number of epochs with no improvement on the validation loss before stopping training early """
+    force_overwrite: bool = False
+    """ Skip training if model already exists if this is False """
 
 
 class WorldModelDataset(Dataset):
@@ -95,7 +97,23 @@ class WorldModelDataset(Dataset):
     def get_buffer_paths(self, args):
         all_buffer_paths = []
         if args.latest_replay_buffer_folder:
-            all_buffer_paths.append(args.latest_replay_buffer_folder)
+            contents = os.listdir(args.latest_replay_buffer_folder)
+            if (
+                "observations.npy" in contents
+            ):  # then its a run folder with a single replay buffer
+                all_buffer_paths.append(args.latest_replay_buffer_folder)
+            else:  # then its a folder containing multiple run folders, we want to use all of them
+                for subfolder in contents:
+                    subfolder_path = os.path.join(
+                        args.latest_replay_buffer_folder, subfolder
+                    )
+                    if os.path.isdir(subfolder_path):
+                        if "observations.npy" in os.listdir(subfolder_path):
+                            all_buffer_paths.append(subfolder_path)
+                        else:  # In case some run is ongoing. In general, we want to avoid this.
+                            print(
+                                f"Warning: {subfolder_path} does not contain a replay buffer, skipping..."
+                            )
         if args.buffer_load_path:
             # previous_buffer_metadata is stored in buffer_load_path + "/buffer_metadata.txt" each line of this file is a path to a replay buffer that we will use for training the world model
             with open(
@@ -105,6 +123,20 @@ class WorldModelDataset(Dataset):
                     buffer_path = line.strip()
                     if buffer_path != "" and buffer_path not in all_buffer_paths:
                         all_buffer_paths.append(buffer_path)
+        # validate that all buffer paths exist and contain the necessary files
+        for buffer_path in all_buffer_paths:
+            assert os.path.exists(
+                buffer_path
+            ), f"Buffer path {buffer_path} does not exist"
+            assert os.path.exists(
+                os.path.join(buffer_path, "observations.npy")
+            ), f"Buffer path {buffer_path} does not contain observations.npy"
+            assert os.path.exists(
+                os.path.join(buffer_path, "actions.npy")
+            ), f"Buffer path {buffer_path} does not contain actions.npy"
+            assert os.path.exists(
+                os.path.join(buffer_path, "last_step_indices.npy")
+            ), f"Buffer path {buffer_path} does not contain last_step_indices.npy"
         return all_buffer_paths
 
     def get_embedder(self, args):
@@ -179,6 +211,28 @@ class WorldModelDataset(Dataset):
 if __name__ == "__main__":
     args = tyro.cli(Args)
     assert args.buffer_save_path is not None, "buffer_save_path must be specified"
+    if os.path.exists(args.buffer_save_path + "/world_model.pt"):
+        if not args.force_overwrite:
+            print(
+                f"World model already exists at {args.buffer_save_path}/world_model.pt, skipping training. Use --force_overwrite to overwrite."
+            )
+            exit(0)
+        else:
+            print(
+                f"World model already exists at {args.buffer_save_path}/world_model.pt, but --force_overwrite is True, so overwriting..."
+            )
+    assert (
+        args.buffer_load_path is not None
+        or args.latest_replay_buffer_folder is not None
+    ), "At least one of buffer_load_path or latest_replay_buffer_folder must be specified"
+    if args.buffer_load_path is not None:
+        assert os.path.exists(
+            args.buffer_load_path
+        ), f"buffer_load_path {args.buffer_load_path} does not exist"
+    if args.latest_replay_buffer_folder is not None:
+        assert os.path.exists(
+            args.latest_replay_buffer_folder
+        ), f"latest_replay_buffer_folder {args.latest_replay_buffer_folder} does not exist"
     torch.manual_seed(args.seed)
     random.seed(args.seed)
     np.random.seed(args.seed)
