@@ -93,6 +93,8 @@ class Args:
     """the type of curiosity module to use."""
     observation_embedder: str = "random_patch"
     """the type of observation embedder to use for the curiosity module."""
+    embedder_load_path: str | None = None
+    """path to load the observation embedder's weights from. Only applicable if the observation embedder supports loading."""
     reset_curiosity_module: bool = True
     """whether to reset the curiosity module at the end of each episode"""
     similarity_metric: str = "cosine"
