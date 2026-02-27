@@ -234,6 +234,7 @@ if __name__ == "__main__":
             train_dataloader, desc="Epoch {epoch} - Training", leave=False
         ):
             optimizer.zero_grad()
+            breakpoint()  # TODO: This will fail rn because world_model shape didn't take into account the frame stacking.
             pred_next_obs = world_model(X_batch)
             loss = F.mse_loss(pred_next_obs, y_batch)
             loss.backward()
