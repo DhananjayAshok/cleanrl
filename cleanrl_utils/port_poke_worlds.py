@@ -280,7 +280,7 @@ class WorldModel(nn.Module):
             nn.ReLU(),
             nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU(),
-            nn.Linear(hidden_dim, observation_dim),
+            nn.Linear(hidden_dim, self.embedder.output_dim),
         )
 
     def forward(self, x):
@@ -305,6 +305,9 @@ class WorldModel(nn.Module):
 
     def get_reward(self, obs, actions, next_obs, infos) -> float:
         with torch.no_grad():
+            next_obs = next_obs[
+                0, -1
+            ]  # get the last frame of the frame stack. THIS COMMITS TO ONLY ONE ENV
             next_obs_embed = self.embedder.embed(next_obs)
             predicted_next_obs_embed = self.predict(raw_obs=obs, action=actions)
             # reward is the error in the embedding space
