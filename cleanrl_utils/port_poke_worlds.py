@@ -13,6 +13,9 @@ from cleanrl_utils.buffers import ReplayBuffer
 from matplotlib import pyplot as plt
 
 
+FRAME_STACK = 4
+
+
 class OneOfToDiscreteWrapper(gym.ActionWrapper):
     STATIC_MAP = {}
     """ Set on init to allow static access of a dict mapping actions to HighLevelActions """
@@ -138,7 +141,7 @@ def poke_worlds_make_env(env_id, seed, idx, capture_video, run_name, gamma=0.99)
         env = gym.wrappers.ResizeObservation(
             env, (144, 160)
         )  # Don't ask me why, but this is needed.
-        env = gym.wrappers.FrameStackObservation(env, 4)
+        env = gym.wrappers.FrameStackObservation(env, FRAME_STACK)
         env = gym.wrappers.NormalizeReward(env, gamma=gamma)
 
         if seed is not None:
@@ -266,8 +269,10 @@ class WorldModel(nn.Module):
             action_dim = get_pokeworlds_n_actions(env_id)
             self.create_model(action_dim)
 
-    def create_model(self, action_dim):
-        observation_dim = self.embedder.output_dim
+    def create_model(self, action_dim=None):
+        observation_dim = self.embedder.output_dim * FRAME_STACK
+        if action_dim is None:
+            action_dim = get_pokeworlds_n_actions()  # attempt to get from static map
         self.action_dim = action_dim
         hidden_dim = self.hidden_dim
         self.model = nn.Sequential(
@@ -289,7 +294,7 @@ class WorldModel(nn.Module):
         if self.model is None:
             self.create_model()
         with torch.no_grad():
-            obs = self.embedder.embed(raw_obs)
+            obs = self.embedder.embed(raw_obs).reshape(-1)  # flatten the frame stack
             action_vector = torch.zeros(
                 self.action_dim, dtype=obs.dtype, device=obs.device
             )
@@ -302,8 +307,15 @@ class WorldModel(nn.Module):
         with torch.no_grad():
             next_obs_embed = self.embedder.embed(next_obs)
             predicted_next_obs_embed = self.predict(raw_obs=obs, action=actions)
-        # reward is the error in the embedding space
-        reward = torch.norm(predicted_next_obs_embed - next_obs_embed, dim=-1).item()
+            # reward is the error in the embedding space
+            if self.normalized_observations:
+                # reward is 1 - cosine_similarity. Since the embeddings are normalized, cosine similarity is just the dot product.
+                reward = 1 - torch.dot(predicted_next_obs_embed, next_obs_embed).item()
+            else:
+                # MSE between the vectors
+                reward = torch.mean(
+                    (predicted_next_obs_embed - next_obs_embed) ** 2
+                ).item()
         return reward
 
     def reset(self):

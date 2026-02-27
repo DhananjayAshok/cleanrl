@@ -202,7 +202,11 @@ class NoisyDuelingDistributionalNetwork(nn.Module):
         self.register_buffer("support", torch.linspace(v_min, v_max, n_atoms))
 
         self.network = nn.Sequential(*get_gameboy_cnn_chain())
-        conv_output_size = 128
+        obs_shape = env.single_observation_space.shape
+        with torch.inference_mode():
+            output_dim = self.network(torch.zeros(1, *obs_shape)).shape[1]
+
+        conv_output_size = output_dim
 
         self.value_head = nn.Sequential(
             NoisyLinear(conv_output_size, 512), nn.ReLU(), NoisyLinear(512, n_atoms)

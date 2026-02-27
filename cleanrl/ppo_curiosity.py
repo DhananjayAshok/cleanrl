@@ -149,8 +149,15 @@ class Agent(nn.Module):
         self.network = nn.Sequential(
             *get_gameboy_cnn_chain(),
         )
-        self.actor = layer_init(nn.Linear(128, envs.single_action_space.n), std=0.01)
-        self.critic = layer_init(nn.Linear(128, 1), std=1)
+
+        obs_shape = envs.single_observation_space.shape
+        with torch.inference_mode():
+            output_dim = self.network(torch.zeros(1, *obs_shape)).shape[1]
+
+        self.actor = layer_init(
+            nn.Linear(output_dim, envs.single_action_space.n), std=0.01
+        )
+        self.critic = layer_init(nn.Linear(output_dim, 1), std=1)
 
     def get_value(self, x):
         return self.critic(self.network(x / 255.0))

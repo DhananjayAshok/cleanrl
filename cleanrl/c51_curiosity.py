@@ -145,9 +145,14 @@ class QNetwork(nn.Module):
         self.n_atoms = n_atoms
         self.register_buffer("atoms", torch.linspace(v_min, v_max, steps=n_atoms))
         self.n = env.single_action_space.n
+        obs_shape = env.single_observation_space.shape
+        self.encoder = nn.Sequential(*get_gameboy_cnn_chain())
+        with torch.inference_mode():
+            output_dim = self.encoder(torch.zeros(1, *obs_shape)).shape[1]
+
         self.network = nn.Sequential(
-            *get_gameboy_cnn_chain(),
-            nn.Linear(128, 512),
+            self.encoder,
+            nn.Linear(output_dim, 512),
             nn.ReLU(),
             nn.Linear(512, self.n * n_atoms),
         )

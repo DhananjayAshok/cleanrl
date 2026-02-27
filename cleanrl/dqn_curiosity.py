@@ -138,9 +138,13 @@ def make_env(env_id, seed, idx, capture_video, run_name, gamma=0.99):
 class QNetwork(nn.Module):
     def __init__(self, env):
         super().__init__()
+        self.encoder = nn.Sequential(*get_gameboy_cnn_chain())
+        obs_shape = env.single_observation_space.shape
+        with torch.inference_mode():
+            output_dim = self.encoder(torch.zeros(1, *obs_shape)).shape[1]
         self.network = nn.Sequential(
-            *get_gameboy_cnn_chain(),
-            nn.Linear(128, env.single_action_space.n),
+            self.encoder,
+            nn.Linear(output_dim, env.single_action_space.n),
         )
 
     def forward(self, x):
