@@ -28,8 +28,8 @@ def evaluate(
     obs, _ = envs.reset()
     args.curiosity_module.reset()  # reset the curiosity module's buffer at the start of evaluation
     episodic_returns = []
+    curiosity_rewards = []
     while len(episodic_returns) < eval_episodes:
-        curiosity_rewards = []
         q_values = model(torch.Tensor(obs).to(device))
         actions = torch.argmax(q_values, dim=1).cpu().numpy()
         next_obs, rewards, terminations, truncations, infos = envs.step(actions)
@@ -50,6 +50,7 @@ def evaluate(
                 episodic_returns += [info["episode"]["r"]]
             args.curiosity_module.iterative_save()
             args.curiosity_module.reset()
+            curiosity_rewards = []
         obs = next_obs
 
     return episodic_returns
