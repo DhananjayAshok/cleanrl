@@ -13,6 +13,16 @@ from cleanrl_utils.buffers import ReplayBuffer
 from matplotlib import pyplot as plt
 
 
+def depathify(string):
+    return (
+        string.replace("/", "_")
+        .replace("\\", "_")
+        .replace(":", "_")
+        .replace(" ", "_")
+        .replace(".", "_")
+    )
+
+
 FRAME_STACK = 4
 
 

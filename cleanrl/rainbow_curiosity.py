@@ -25,6 +25,7 @@ from cleanrl_utils.atari_wrappers import (
     NoopResetEnv,
 )
 from cleanrl_utils.port_poke_worlds import (
+    depathify,
     get_curiosity_module,
     get_gameboy_cnn_chain,
     PokemonReplayBuffer as ReplayBuffer,
@@ -427,6 +428,7 @@ class PrioritizedReplayBuffer:
 
 if __name__ == "__main__":
     args = tyro.cli(Args)
+    args.exp_name = depathify(args.exp_name)
     assert args.num_envs == 1, "vectorized envs are not supported at the moment"
     assert (
         args.buffer_save_path is None or args.buffer_save_path != args.buffer_load_path

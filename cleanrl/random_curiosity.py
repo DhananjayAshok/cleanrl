@@ -22,6 +22,7 @@ from cleanrl_utils.atari_wrappers import (
     NoopResetEnv,
 )
 from cleanrl_utils.port_poke_worlds import (
+    depathify,
     get_curiosity_module,
     get_gameboy_cnn_chain,
     PokemonReplayBuffer as ReplayBuffer,
@@ -120,6 +121,7 @@ def make_env(env_id, seed, idx, capture_video, run_name, gamma=0.99):
 
 if __name__ == "__main__":
     args = tyro.cli(Args)
+    args.exp_name = depathify(args.exp_name)
     assert args.num_envs == 1, "vectorized envs are not supported at the moment"
     run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
     if args.track:

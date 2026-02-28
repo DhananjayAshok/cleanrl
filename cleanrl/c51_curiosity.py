@@ -24,6 +24,7 @@ from cleanrl_utils.port_poke_worlds import (
     get_curiosity_module,
     get_gameboy_cnn_chain,
     PokemonReplayBuffer as ReplayBuffer,
+    depathify,
 )
 
 
@@ -180,6 +181,8 @@ if __name__ == "__main__":
     assert (
         args.buffer_save_path is None or args.buffer_save_path != args.buffer_load_path
     ), "buffer save path and load path cannot be the same for this algorithm."
+
+    args.exp_name = depathify(args.exp_name)
     run_name = f"{args.exp_name}__{args.seed}__{int(time.time())}"
     if args.track:
         import wandb
