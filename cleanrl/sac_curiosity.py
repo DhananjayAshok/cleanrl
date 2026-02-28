@@ -233,9 +233,9 @@ if __name__ == "__main__":
         [make_env(args.env_id, args.seed, 0, args.capture_video, run_name)],
         autoreset_mode=gym.vector.AutoresetMode.SAME_STEP,
     )
-    assert isinstance(envs.single_action_space, gym.spaces.Discrete), (
-        "only discrete action space is supported"
-    )
+    assert isinstance(
+        envs.single_action_space, gym.spaces.Discrete
+    ), "only discrete action space is supported"
 
     actor = Actor(envs).to(device)
     qf1 = SoftQNetwork(envs).to(device)
@@ -406,6 +406,11 @@ if __name__ == "__main__":
                     )
 
             if global_step % 100 == 0:
+                writer.add_scalar(
+                    "charts/completion_percentage",
+                    global_step / args.total_timesteps,
+                    global_step,
+                )
                 writer.add_scalar(
                     "losses/qf1_values", qf1_a_values.mean().item(), global_step
                 )
