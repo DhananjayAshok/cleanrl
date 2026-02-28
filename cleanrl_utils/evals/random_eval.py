@@ -24,8 +24,8 @@ def evaluate(
 
     obs, _ = envs.reset()
     episodic_returns = []
+    curiosity_rewards = []
     while len(episodic_returns) < eval_episodes:
-        curiosity_rewards = []
         actions = np.array(
             [envs.single_action_space.sample() for _ in range(envs.num_envs)]
         )
@@ -47,6 +47,7 @@ def evaluate(
                 episodic_returns += [info["episode"]["r"]]
             args.curiosity_module.iterative_save()
             args.curiosity_module.reset()
+            curiosity_rewards = []
         obs = next_obs
 
     return episodic_returns
