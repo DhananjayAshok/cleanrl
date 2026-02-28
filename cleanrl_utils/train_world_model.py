@@ -50,6 +50,8 @@ class Args:
     # Curiosity module specific arguments
     observation_embedder: str = "random_patch"
     """the type of observation embedder to use for the curiosity module."""
+    embedder_load_path: str | None = None
+    """path to load the observation embedder's weights from. Only applicable if the observation embedder supports loading."""
     buffer_load_path: str | None = None
     """ path to load the previous buffer metadata from (if None, only the latest will be used)"""
     latest_replay_buffer_folder: str | None = None
