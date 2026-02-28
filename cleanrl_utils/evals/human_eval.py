@@ -26,13 +26,10 @@ def evaluate(
     episodic_returns = []
     curiosity_rewards = []
     input_sequence = Model
-    default_action = 5  # should be B in the low level actions
+    n_steps = 0
     while len(episodic_returns) < eval_episodes:
-        n_steps = len(curiosity_rewards)
-        if n_steps < len(input_sequence):
-            action = input_sequence[n_steps]
-        else:
-            action = default_action
+        action = input_sequence[n_steps]
+        n_steps += 1
         actions = np.array([action for _ in range(envs.num_envs)])
         next_obs, rewards, terminations, truncations, infos = envs.step(actions)
         curiosity_reward = args.curiosity_module.get_reward(
@@ -53,6 +50,17 @@ def evaluate(
             args.curiosity_module.iterative_save()
             args.curiosity_module.reset()
             curiosity_rewards = []
+        elif n_steps >= len(input_sequence):
+            print(
+                f"input_sequence exhausted, resetting env. curiosity_reward={sum(curiosity_rewards)}"
+            )
+            episodic_returns += [0]
+            args.curiosity_module.iterative_save()
+            args.curiosity_module.reset()
+            curiosity_rewards = []
+            obs, _ = envs.reset()
+            n_steps = 0
+            continue
         obs = next_obs
 
     return episodic_returns
