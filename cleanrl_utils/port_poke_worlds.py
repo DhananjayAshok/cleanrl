@@ -439,6 +439,9 @@ class EmbedBuffer:
                 self.rationalize_buffer()
 
     def rationalize_buffer(self):
+        print(
+            f"Rationalizing buffer with current size {self.buffer.shape[0]} and max size {self.max_size}..."
+        )
         # cluster down to half the size and keep the cluster centers only
         target_size = self.max_size // 2
         kmeans = KMeans(n_clusters=target_size, random_state=42)
@@ -446,7 +449,7 @@ class EmbedBuffer:
         self.buffer = torch.tensor(
             kmeans.cluster_centers_,
             dtype=self.buffer.dtype,
-            device=next(self.buffer.parameters()).device,
+            device=self.buffer.device,
         )
 
     def get_reward(self, obs, actions, next_obs, infos) -> float:
