@@ -200,6 +200,17 @@ def random_curiosity():
     )
 
 
+def human_curiosity():
+    import cleanrl.human_curiosity
+    import cleanrl_utils.evals.human_eval
+
+    return (
+        cleanrl.human_curiosity.input_sequence,
+        cleanrl.human_curiosity.make_env,
+        cleanrl_utils.evals.human_eval.evaluate,
+    )
+
+
 MODELS = {
     "dqn": dqn,
     "dqn_atari": dqn_atari,
@@ -219,4 +230,5 @@ MODELS = {
     "rainbow_atari": rainbow_atari,
     "rainbow_curiosity": rainbow_curiosity,
     "random_curiosity": random_curiosity,
+    "human_curiosity": human_curiosity,
 }
