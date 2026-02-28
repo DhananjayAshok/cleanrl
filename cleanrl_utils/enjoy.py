@@ -32,6 +32,8 @@ def parse_args():
                     help="the type of curiosity module to use.")
     parser.add_argument("--observation_embedder", type=str, default="random_patch",
                     help="the type of observation embedder to use for the curiosity module.")
+    parser.add_argument("--embedder_load_path", type=str, default=None,
+                    help="path to load the observation embedder's weights from. Only applicable if the observation embedder supports loading.")
     parser.add_argument("--similarity_metric", type=str, default="cosine",
                     help="the similarity metric to use for the EmbedBuffer curiosity module.")
     parser.add_argument("--buffer_save_path", type=str, default=None,
