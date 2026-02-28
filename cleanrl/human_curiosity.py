@@ -44,6 +44,9 @@ from cleanrl_utils.port_poke_worlds import (
 
 
 input_sequence = []
+assert (
+    len(input_sequence) > 0
+), "Please fill in the input_sequence with a list of actions to take in the environment.\nThe action mapping is {OneOfToDiscreteWrapper.STATIC_MAP}"
 
 
 @dataclass
