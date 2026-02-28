@@ -27,7 +27,23 @@ from cleanrl_utils.port_poke_worlds import (
     get_curiosity_module,
     get_gameboy_cnn_chain,
     PokemonReplayBuffer as ReplayBuffer,
+    plot_observation,
 )
+
+"""
+{
+0: (<class 'poke_worlds.interface.action.LowLevelAction'>, {'low_level_action': <LowLevelActions.PRESS_ARROW_DOWN: 2>}), 
+1: (<class 'poke_worlds.interface.action.LowLevelAction'>, {'low_level_action': <LowLevelActions.PRESS_ARROW_LEFT: 4>}), 
+2: (<class 'poke_worlds.interface.action.LowLevelAction'>, {'low_level_action': <LowLevelActions.PRESS_ARROW_RIGHT: 3>}), 
+3: (<class 'poke_worlds.interface.action.LowLevelAction'>, {'low_level_action': <LowLevelActions.PRESS_ARROW_UP: 1>}), 
+4: (<class 'poke_worlds.interface.action.LowLevelAction'>, {'low_level_action': <LowLevelActions.PRESS_BUTTON_A: 5>}), 
+5: (<class 'poke_worlds.interface.action.LowLevelAction'>, {'low_level_action': <LowLevelActions.PRESS_BUTTON_B: 6>}), 
+6: (<class 'poke_worlds.interface.action.LowLevelAction'>, {'low_level_action': <LowLevelActions.PRESS_BUTTON_START: 8>})
+}
+"""
+
+
+input_sequence = []
 
 
 @dataclass
@@ -88,19 +104,6 @@ class Args:
     """ folder to save the replay buffer """
 
 
-"""
-{
-0: (<class 'poke_worlds.interface.action.LowLevelAction'>, {'low_level_action': <LowLevelActions.PRESS_ARROW_DOWN: 2>}), 
-1: (<class 'poke_worlds.interface.action.LowLevelAction'>, {'low_level_action': <LowLevelActions.PRESS_ARROW_LEFT: 4>}), 
-2: (<class 'poke_worlds.interface.action.LowLevelAction'>, {'low_level_action': <LowLevelActions.PRESS_ARROW_RIGHT: 3>}), 
-3: (<class 'poke_worlds.interface.action.LowLevelAction'>, {'low_level_action': <LowLevelActions.PRESS_ARROW_UP: 1>}), 
-4: (<class 'poke_worlds.interface.action.LowLevelAction'>, {'low_level_action': <LowLevelActions.PRESS_BUTTON_A: 5>}), 
-5: (<class 'poke_worlds.interface.action.LowLevelAction'>, {'low_level_action': <LowLevelActions.PRESS_BUTTON_B: 6>}), 
-6: (<class 'poke_worlds.interface.action.LowLevelAction'>, {'low_level_action': <LowLevelActions.PRESS_BUTTON_START: 8>})
-}
-"""
-
-
 def make_env(env_id, seed, idx, capture_video, run_name, gamma=0.99):
     if env_id.startswith("poke_worlds"):
         from cleanrl_utils.port_poke_worlds import poke_worlds_make_env
@@ -157,11 +160,10 @@ if __name__ == "__main__":
         ],
         autoreset_mode=gym.vector.AutoresetMode.SAME_STEP,
     )
-    assert isinstance(envs.single_action_space, gym.spaces.Discrete), (
-        "only discrete action space is supported"
-    )
+    assert isinstance(
+        envs.single_action_space, gym.spaces.Discrete
+    ), "only discrete action space is supported"
 
-    input_sequence = []
     if len(input_sequence) == 0:
         raise ValueError(
             f"input_sequence is empty. Please fill in the input_sequence with a list of actions to take in the environment.\nThe action mapping is {OneOfToDiscreteWrapper.STATIC_MAP}"
@@ -189,6 +191,7 @@ if __name__ == "__main__":
         next_obs, rewards, terminations, truncations, infos = envs.step(actions)
         if "final_info" in infos:
             this_episode_reward = sum(episode_rewards)
+            print(f"global_step={global_step}, episode_reward={this_episode_reward}")
             episode_rewards = []
             if args.reset_curiosity_module:
                 curiosity_module.reset()  # reset the curiosity module at the end of each episode if the flag is set
@@ -201,6 +204,9 @@ if __name__ == "__main__":
         print(
             f"global_step={global_step}, action={OneOfToDiscreteWrapper.get_high_level_action_static(actions[0])}, reward={rewards[0]}"
         )
+        save_name = f"train_{global_step}"
+        title = f"Step: {global_step}, Action: {OneOfToDiscreteWrapper.get_high_level_action_static(actions[0])}, Reward: {rewards[0]}"
+        plot_observation(next_obs[0], save_name=save_name, title=title)
 
         # TRY NOT TO MODIFY: save data to reply buffer; handle `final_observation`
         real_next_obs = next_obs.copy()
@@ -211,6 +217,8 @@ if __name__ == "__main__":
 
         # TRY NOT TO MODIFY: CRUCIAL step easy to overlook
         obs = next_obs
+    this_episode_reward = sum(episode_rewards)
+    print(f"global_step={global_step}, episode_reward={this_episode_reward}")
 
     rb.save(args.replay_buffer_save_folder, args.exp_name)
     envs.close()

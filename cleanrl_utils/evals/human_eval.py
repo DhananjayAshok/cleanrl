@@ -4,6 +4,7 @@ from typing import Callable
 import gymnasium as gym
 import numpy as np
 import torch
+from cleanrl_utils.port_poke_worlds import plot_observation, OneOfToDiscreteWrapper
 
 
 def evaluate(
@@ -35,6 +36,9 @@ def evaluate(
         curiosity_reward = args.curiosity_module.get_reward(
             obs, actions, next_obs, infos
         )
+        title = f"Step: {n_steps}, Action: {OneOfToDiscreteWrapper.get_high_level_action_static(action)}, Curiosity Reward: {curiosity_reward}"
+        save_name = f"eval_{n_steps}.png"
+        plot_observation(next_obs[0], save_name=save_name, title=title)
         rewards[0] = rewards[0] + curiosity_reward
         curiosity_rewards.append(curiosity_reward)
         if "final_info" in infos:

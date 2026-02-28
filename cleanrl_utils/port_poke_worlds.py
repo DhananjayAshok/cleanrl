@@ -691,6 +691,21 @@ def stacked_frame_to_single(observation):
     return show_obs
 
 
+def plot_observation(
+    observation, save_name, save_folder="../frame_saves/", title="Observation Frames"
+):
+    save_path = f"{save_folder}/{save_name}.png"
+    os.makedirs(save_folder, exist_ok=True)
+    obs_single = stacked_frame_to_single(observation)
+    plt.figure(figsize=(5, 20))
+    plt.imshow(obs_single, cmap="gray")
+    plt.axis("off")
+    plt.title(title)
+    plt.tight_layout()
+    plt.savefig(save_path)
+    plt.close()
+
+
 def visualize_transition(observation, new_observation, action, reward, step, save_path):
     obs_single = stacked_frame_to_single(observation)
     new_obs_single = stacked_frame_to_single(new_observation)
