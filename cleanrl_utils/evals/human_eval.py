@@ -18,6 +18,7 @@ def evaluate(
     capture_video: bool = True,
     args=None,
 ):
+    eval_episodes = 1
     envs = gym.vector.SyncVectorEnv(
         [make_env(env_id, 0, 0, capture_video, run_name)],
         autoreset_mode=gym.vector.AutoresetMode.SAME_STEP,
@@ -36,9 +37,12 @@ def evaluate(
         curiosity_reward = args.curiosity_module.get_reward(
             obs, actions, next_obs, infos
         )
-        title = f"Step: {n_steps}, Action: {OneOfToDiscreteWrapper.get_high_level_action_static(action)}, Curiosity Reward: {curiosity_reward}"
+        title = f"Step: {n_steps}, Action: {OneOfToDiscreteWrapper.get_high_level_action_static(action)}, Curiosity Reward: {curiosity_reward:6f}"
         save_name = f"eval_{n_steps}.png"
         plot_observation(next_obs[0], save_name=save_name, title=title)
+        print(
+            f"Step: {n_steps}, Action: {OneOfToDiscreteWrapper.get_high_level_action_static(action)}, Curiosity Reward: {curiosity_reward:6f}"
+        )
         rewards[0] = rewards[0] + curiosity_reward
         curiosity_rewards.append(curiosity_reward)
         if "final_info" in infos:
@@ -48,7 +52,7 @@ def evaluate(
                 if "episode" not in info:
                     continue
                 print(
-                    f"eval_episode={len(episodic_returns)}, episodic_return={info['episode']['r']}, curiosity_reward={sum(curiosity_rewards)}"
+                    f"eval_episode={len(episodic_returns)}, episodic_return={info['episode']['r']}, curiosity_reward={sum(curiosity_rewards):6f}"
                 )
                 episodic_returns += [info["episode"]["r"]]
             args.curiosity_module.iterative_save()
@@ -56,7 +60,7 @@ def evaluate(
             curiosity_rewards = []
         elif n_steps >= len(input_sequence):
             print(
-                f"input_sequence exhausted, resetting env. curiosity_reward={sum(curiosity_rewards)}"
+                f"input_sequence exhausted, resetting env. curiosity_reward={sum(curiosity_rewards):6f}"
             )
             episodic_returns += [0]
             args.curiosity_module.iterative_save()
