@@ -419,6 +419,11 @@ if __name__ == "__main__":
         writer.add_scalar(
             "charts/SPS", int(global_step / (time.time() - start_time)), global_step
         )
+        writer.add_scalar(
+            "charts/completion_percentage",
+            global_step / args.total_timesteps,
+            global_step,
+        )
 
     envs.close()
     writer.close()

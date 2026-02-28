@@ -628,6 +628,11 @@ if __name__ == "__main__":
                     print("SPS:", sps)
                     writer.add_scalar("charts/SPS", sps, global_step)
                     writer.add_scalar("charts/beta", rb.beta, global_step)
+                    writer.add_scalar(
+                        "charts/completion_percentage",
+                        global_step / args.total_timesteps,
+                        global_step,
+                    )
 
                 # optimize the model
                 optimizer.zero_grad()

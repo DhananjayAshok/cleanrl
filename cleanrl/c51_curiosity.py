@@ -219,9 +219,9 @@ if __name__ == "__main__":
         ],
         autoreset_mode=gym.vector.AutoresetMode.SAME_STEP,
     )
-    assert isinstance(
-        envs.single_action_space, gym.spaces.Discrete
-    ), "only discrete action space is supported"
+    assert isinstance(envs.single_action_space, gym.spaces.Discrete), (
+        "only discrete action space is supported"
+    )
 
     q_network = QNetwork(
         envs, n_atoms=args.n_atoms, v_min=args.v_min, v_max=args.v_max
@@ -347,6 +347,11 @@ if __name__ == "__main__":
                     writer.add_scalar(
                         "charts/SPS",
                         int(global_step / (time.time() - start_time)),
+                        global_step,
+                    )
+                    writer.add_scalar(
+                        "charts/completion_percentage",
+                        global_step / args.total_timesteps,
                         global_step,
                     )
 

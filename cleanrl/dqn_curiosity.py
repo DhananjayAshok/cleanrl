@@ -303,6 +303,11 @@ if __name__ == "__main__":
                         int(global_step / (time.time() - start_time)),
                         global_step,
                     )
+                    writer.add_scalar(
+                        "charts/completion_percentage",
+                        global_step / args.total_timesteps,
+                        global_step,
+                    )
 
                 # optimize the model
                 optimizer.zero_grad()
