@@ -573,7 +573,7 @@ class EmbedBuffer:
         )
 
     def get_reward(self, obs, actions, next_obs, infos) -> float:
-        passed_frames = get_passed_frames(infos)
+        passed_frames = obs[0][-1].reshape(144, 160)  # get_passed_frames(infos)
         with torch.no_grad():
             if self.buffer is None:
                 self.add(passed_frames)
