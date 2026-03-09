@@ -234,6 +234,11 @@ class PatchProjection(nn.Module):
     def __init__(self, normalized_observations=True):
         super().__init__()
         self.normalized_observations = normalized_observations
+        self.make_network()
+        self.output_dim = 90 * 4
+        self.dtype = self.project[0].weight.dtype
+
+    def make_network(self):
         self.project = nn.Sequential(
             nn.Conv2d(
                 1,
@@ -243,8 +248,6 @@ class PatchProjection(nn.Module):
             ),
             nn.Flatten(),
         )
-        self.output_dim = 90 * 4
-        self.dtype = self.project[0].weight.dtype
 
     def forward(self, x):
         vector = self.project(x)
@@ -264,6 +267,9 @@ class PatchProjection(nn.Module):
             )
             embeddings = self(batch_tensor)
             return embeddings
+
+    def reset(self):
+        self.make_network()
 
 
 def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
@@ -327,6 +333,7 @@ class CNNEmbedder(nn.Module):
         )
         self.output_dim = hidden_dim
         self.normalized_observations = normalized_observations
+        self.reset()
 
     def do_embed(self, x):
         normed = self.norm1(x)
@@ -352,12 +359,17 @@ class CNNEmbedder(nn.Module):
                 device=next(self.parameters()).device,
             )
             embeddings = self.do_embed(batch_tensor)
-            return embeddings
+            return embeddings + self.noise
 
     def load(self, path):
         loaded_state = torch.load(path)
         self.load_state_dict(loaded_state)
         print(f"Loaded CNN embedder from {path}")
+
+    def reset(self):
+        self.noise = 0.0001 * torch.randn(
+            self.output_dim, device=next(self.parameters()).device
+        )  # small amount of noise to add to embeddings to prevent reward hacking.
 
 
 class WorldModel(nn.Module):
@@ -541,6 +553,7 @@ class EmbedBuffer:
         del self.buffer
         self.buffer = None
         self.load()
+        self.embedder.reset()
 
     def add(self, items: np.ndarray, embeddings=None):
         if self.buffer is None:

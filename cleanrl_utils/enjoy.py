@@ -11,7 +11,7 @@ from cleanrl_utils.port_gameboy_worlds import get_curiosity_module
 def parse_args():
     # fmt: off
     parser = argparse.ArgumentParser()
-    parser.add_argument("--random_seed", type=int, default=42, help="the random seed for reproducibility")
+    parser.add_argument("--random_seed", type=int, default=1, help="the random seed for reproducibility")
     parser.add_argument("--exp-name", type=str, default="dqn_atari",
         help="the name of this experiment (e.g., ppo, dqn_atari)")
     parser.add_argument("--save-name", type=str, default="",
