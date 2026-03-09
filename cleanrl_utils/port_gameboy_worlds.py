@@ -359,7 +359,7 @@ class CNNEmbedder(nn.Module):
                 device=next(self.parameters()).device,
             )
             embeddings = self.do_embed(batch_tensor)
-            return embeddings + self.noise
+            return embeddings
 
     def load(self, path):
         loaded_state = torch.load(path)
@@ -369,7 +369,7 @@ class CNNEmbedder(nn.Module):
     def reset(self):
         self.noise = 0.0001 * torch.randn(
             self.output_dim, device=next(self.parameters()).device
-        )  # small amount of noise to add to embeddings to prevent reward hacking.
+        )  # not used. Its there cause im curious
 
 
 class WorldModel(nn.Module):
@@ -554,7 +554,6 @@ class EmbedBuffer:
         self.buffer = None
         self.first_add = False
         self.load()
-        self.embedder.reset()
 
     def add(self, items: np.ndarray, embeddings=None):
         if self.buffer is None:
