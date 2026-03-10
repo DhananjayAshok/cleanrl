@@ -211,6 +211,8 @@ def get_pokeworlds_n_actions(id_string=None):
 
 
 def poke_worlds_make_env(env_id, seed, idx, capture_video, run_name, gamma=0.99):
+    if capture_video == 1:
+        capture_video = True
     if isinstance(capture_video, int):
         capture_every = max(1, capture_video)
         capture_video = True
@@ -250,14 +252,18 @@ class PatchProjection(nn.Module):
     Divides the image into 16x16 patches, applies a random linear projection to each patch, and concatenates the results.
     """
 
-    def __init__(self, normalized_observations=True):
+    def __init__(self, seed, normalized_observations=True):
         super().__init__()
         self.normalized_observations = normalized_observations
+        self.seed = seed
         self.make_network()
         self.output_dim = 90 * 4
         self.dtype = self.project[0].weight.dtype
 
     def make_network(self):
+        torch.manual_seed(
+            self.seed
+        )  # always force so that the same random projection is used even across different scripts
         self.project = nn.Sequential(
             nn.Conv2d(
                 1,
@@ -330,8 +336,9 @@ def invert_gameboy_cnn_chain(stacked=True):
 
 
 class CNNEmbedder(nn.Module):
-    def __init__(self, hidden_dim=128, normalized_observations=True):
+    def __init__(self, seed, hidden_dim=128, normalized_observations=True):
         super().__init__()
+        torch.manual_seed(seed)
         self.norm1 = nn.BatchNorm2d(1, affine=False)
         self.internal_norm = nn.BatchNorm1d(hidden_dim)
         self.norm2 = nn.BatchNorm2d(1, affine=False)
@@ -717,12 +724,12 @@ class ClusterOnlyBuffer:
 def get_curiosity_module(args):
     if args.observation_embedder == "random_patch":
         embedder = PatchProjection(
-            normalized_observations=args.similarity_metric == "cosine"
+            seed=args.seed, normalized_observations=args.similarity_metric == "cosine"
         ).eval()
 
     elif args.observation_embedder == "cnn":
         embedder = CNNEmbedder(
-            normalized_observations=args.similarity_metric == "cosine"
+            seed=args.seed, normalized_observations=args.similarity_metric == "cosine"
         ).eval()
         if args.embedder_load_path is not None:
             embedder.load(args.embedder_load_path)

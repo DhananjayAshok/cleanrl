@@ -195,14 +195,13 @@ def get_model_save_data(args, q_network):
 if __name__ == "__main__":
     args = tyro.cli(Args)
     if args.capture_video:
-        if args.total_timesteps > 1e5:
-            max_steps = parse_pokeworlds_id_string(args.env_id)[-2]
-            if not isinstance(max_steps, int):
-                raise ValueError(
-                    f"Max steps not an integer. Did you change the env_id parsing logic? Got {max_steps}"
-                )
-            n_episodes = args.total_timesteps // (max_steps + 1)
-            args.capture_video = n_episodes // 10
+        max_steps = parse_pokeworlds_id_string(args.env_id)[-2]
+        if not isinstance(max_steps, int):
+            raise ValueError(
+                f"Max steps not an integer. Did you change the env_id parsing logic? Got {max_steps}"
+            )
+        n_episodes = args.total_timesteps // (max_steps + 1)
+        args.capture_video = max(1, n_episodes // 10)
     assert args.num_envs == 1, "vectorized envs are not supported at the moment"
     assert (
         args.buffer_save_path is None or args.buffer_save_path != args.buffer_load_path
@@ -247,9 +246,9 @@ if __name__ == "__main__":
         ],
         autoreset_mode=gym.vector.AutoresetMode.SAME_STEP,
     )
-    assert isinstance(
-        envs.single_action_space, gym.spaces.Discrete
-    ), "only discrete action space is supported"
+    assert isinstance(envs.single_action_space, gym.spaces.Discrete), (
+        "only discrete action space is supported"
+    )
 
     q_network = QNetwork(
         envs, n_atoms=args.n_atoms, v_min=args.v_min, v_max=args.v_max

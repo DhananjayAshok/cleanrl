@@ -45,9 +45,9 @@ from cleanrl_utils.port_gameboy_worlds import (
 
 
 input_sequence = []
-assert (
-    len(input_sequence) > 0
-), f"Please fill in the input_sequence with a list of actions to take in the environment."
+assert len(input_sequence) > 0, (
+    f"Please fill in the input_sequence with a list of actions to take in the environment."
+)
 
 
 @dataclass
@@ -143,14 +143,13 @@ def make_env(env_id, seed, idx, capture_video, run_name, gamma=0.99):
 if __name__ == "__main__":
     args = tyro.cli(Args)
     if args.capture_video:
-        if args.total_timesteps > 1e5:
-            max_steps = parse_pokeworlds_id_string(args.env_id)[-2]
-            if not isinstance(max_steps, int):
-                raise ValueError(
-                    f"Max steps not an integer. Did you change the env_id parsing logic? Got {max_steps}"
-                )
-            n_episodes = args.total_timesteps // (max_steps + 1)
-            args.capture_video = n_episodes // 10
+        max_steps = parse_pokeworlds_id_string(args.env_id)[-2]
+        if not isinstance(max_steps, int):
+            raise ValueError(
+                f"Max steps not an integer. Did you change the env_id parsing logic? Got {max_steps}"
+            )
+        n_episodes = args.total_timesteps // (max_steps + 1)
+        args.capture_video = max(1, n_episodes // 10)
     args.exp_name = depathify(args.exp_name)
     assert args.num_envs == 1, "vectorized envs are not supported at the moment"
     run_name = f"{args.env_id}__{args.exp_name}__{args.seed}__{int(time.time())}"
@@ -173,9 +172,9 @@ if __name__ == "__main__":
         ],
         autoreset_mode=gym.vector.AutoresetMode.SAME_STEP,
     )
-    assert isinstance(
-        envs.single_action_space, gym.spaces.Discrete
-    ), "only discrete action space is supported"
+    assert isinstance(envs.single_action_space, gym.spaces.Discrete), (
+        "only discrete action space is supported"
+    )
 
     if len(input_sequence) == 0:
         raise ValueError(
