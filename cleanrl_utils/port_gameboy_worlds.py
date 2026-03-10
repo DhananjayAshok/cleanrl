@@ -212,7 +212,7 @@ def get_pokeworlds_n_actions(id_string=None):
 
 def poke_worlds_make_env(env_id, seed, idx, capture_video, run_name, gamma=0.99):
     if isinstance(capture_video, int):
-        capture_every = capture_video
+        capture_every = max(1, capture_video)
         capture_video = True
     else:
         capture_every = None
