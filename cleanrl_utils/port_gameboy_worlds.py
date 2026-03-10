@@ -359,7 +359,7 @@ class CNNEmbedder(nn.Module):
                 device=next(self.parameters()).device,
             )
             embeddings = self.do_embed(batch_tensor)
-            return embeddings
+            return embeddings  # + noise
 
     def load(self, path):
         loaded_state = torch.load(path)
@@ -753,6 +753,7 @@ class PokemonReplayBuffer(ReplayBuffer):
         # screens not needed because its always the last element of the observations
         self.steps = -np.ones((self.buffer_size, self.n_envs), dtype=np.uint16)
         self.step_counts = np.zeros((self.n_envs,), dtype=np.uint16)
+        self.n_pos_loops = -1
 
     def reset(self):
         # self.screens = np.zeros(
@@ -772,6 +773,8 @@ class PokemonReplayBuffer(ReplayBuffer):
         done: np.ndarray,
         infos,
     ):
+        if self.pos == 0:
+            self.n_pos_loops += 1
         done = "final_info" in infos
         # self.screens[self.pos, 0] = get_passed_frames(infos)[-1].reshape(144, 160)
         self.steps[self.pos, :] = self.step_counts.copy()
@@ -815,6 +818,7 @@ class PokemonReplayBuffer(ReplayBuffer):
                     self.steps[: self.pos],
                     save_folder,
                     run_name,
+                    self.n_pos_loops,
                 )
             print(f"Saved replay buffer with {save_size} entries to {save_path}")
 
@@ -844,7 +848,9 @@ def plot_observation(
     plt.close()
 
 
-def visualize_transition(observation, new_observation, action, reward, step, save_path):
+def visualize_transition(
+    observation, new_observation, action, reward, global_step, step, save_path
+):
     obs_single = stacked_frame_to_single(observation)
     new_obs_single = stacked_frame_to_single(new_observation)
     fig, axes = plt.subplots(1, 2, figsize=(10, 5))
@@ -853,12 +859,20 @@ def visualize_transition(observation, new_observation, action, reward, step, sav
         action.reshape(-1)[0]
     )
     action = action_kwargs
-    axes[0].set_title(f"\nStep {step.reshape(-1)[0]}\nObservation\nAction: {action}")
+    axes[0].set_title(
+        f"\nGlobal Step {global_step}\nEnvironment Step {step.reshape(-1)[0]}\nObservation\nAction: {action}"
+    )
     axes[1].imshow(new_obs_single, cmap="gray")
     axes[1].set_title(f"New Observation\nReward: {reward.reshape(-1)[0]}")
     plt.tight_layout()
     plt.savefig(save_path)
     plt.close()
+
+
+def infer_global_step(index, n_pos_loops, buffer_size):
+    if n_pos_loops == -1:
+        return -1
+    return n_pos_loops * buffer_size + index
 
 
 def save_outliers(
@@ -868,6 +882,7 @@ def save_outliers(
     steps,
     save_folder,
     run_name,
+    n_pos_loops,
     n_samples=20,
     outlier_threshold=2,
 ):
@@ -903,6 +918,7 @@ def save_outliers(
 
     save_path = f"{save_folder}/{run_name}/transition_visualizations/"
     os.makedirs(save_path, exist_ok=True)
+    buffer_size = len(rewards)
     for i in range(n_samples):
         observation, new_observation, action, reward, step = (
             observations[top_sample_indices[i]],
@@ -916,7 +932,7 @@ def save_outliers(
             new_observation,
             action,
             reward,
-            step,
+            infer_global_step(top_sample_indices[i], n_pos_loops, buffer_size),
             save_path + f"top_transition_{i}.png",
         )
         observation, new_observation, action, reward, step = (
@@ -931,7 +947,7 @@ def save_outliers(
             new_observation,
             action,
             reward,
-            step,
+            infer_global_step(bottom_sample_indices[i], n_pos_loops, buffer_size),
             save_path + f"bottom_transition_{i}.png",
         )
     print(
