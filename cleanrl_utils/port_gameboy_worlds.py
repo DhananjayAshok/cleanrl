@@ -860,7 +860,7 @@ def visualize_transition(
     )
     action = action_kwargs
     axes[0].set_title(
-        f"\nGlobal Step {global_step}\nEnvironment Step {step.reshape(-1)[0]}\nObservation\nAction: {action}"
+        f"\nGlobal Step {global_step}\nEnvironment Step {step.reshape(-1)[0]}\nObservation\nAction:\n{action}"
     )
     axes[1].imshow(new_obs_single, cmap="gray")
     axes[1].set_title(f"New Observation\nReward: {reward.reshape(-1)[0]}")
@@ -933,6 +933,7 @@ def save_outliers(
             action,
             reward,
             infer_global_step(top_sample_indices[i], n_pos_loops, buffer_size),
+            step,
             save_path + f"top_transition_{i}.png",
         )
         observation, new_observation, action, reward, step = (
@@ -948,6 +949,7 @@ def save_outliers(
             action,
             reward,
             infer_global_step(bottom_sample_indices[i], n_pos_loops, buffer_size),
+            step,
             save_path + f"bottom_transition_{i}.png",
         )
     print(
