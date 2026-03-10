@@ -25,6 +25,7 @@ from cleanrl_utils.port_gameboy_worlds import (
     depathify,
     get_curiosity_module,
     get_gameboy_cnn_chain,
+    parse_pokeworlds_id_string,
     PokemonReplayBuffer as ReplayBuffer,
 )
 
@@ -121,6 +122,15 @@ def make_env(env_id, seed, idx, capture_video, run_name, gamma=0.99):
 
 if __name__ == "__main__":
     args = tyro.cli(Args)
+    if args.capture_video:
+        if args.total_timesteps > 1e5:
+            max_steps = parse_pokeworlds_id_string(args.env_id)[-2]
+            if not isinstance(max_steps, int):
+                raise ValueError(
+                    f"Max steps not an integer. Did you change the env_id parsing logic? Got {max_steps}"
+                )
+            n_episodes = args.total_timesteps // (max_steps + 1)
+            args.capture_video = n_episodes // 10
     args.exp_name = depathify(args.exp_name)
     assert args.num_envs == 1, "vectorized envs are not supported at the moment"
     run_name = f"{args.exp_name}__{args.seed}__{int(time.time())}"

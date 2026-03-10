@@ -56,6 +56,12 @@ class MaxLengthList:
     def __iter__(self):
         return iter(self.data)
 
+    def __repr__(self):
+        return f"MaxLengthList(max_length={self.max_length}, data={self.data})"
+
+    def __str__(self):
+        return self.__repr__()
+
 
 def save_model(model_data, model_save_folder):
     os.makedirs(model_save_folder, exist_ok=True)
@@ -205,10 +211,23 @@ def get_pokeworlds_n_actions(id_string=None):
 
 
 def poke_worlds_make_env(env_id, seed, idx, capture_video, run_name, gamma=0.99):
+    if isinstance(capture_video, int):
+        capture_every = capture_video
+        capture_video = True
+    else:
+        capture_every = None
+
     def thunk():
         if capture_video and idx == 0:
             env = get_poke_worlds_environment(env_id, render_mode="rgb_array")
-            env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
+            if capture_every is not None:
+                env = gym.wrappers.RecordVideo(
+                    env,
+                    f"videos/{run_name}",
+                    episode_trigger=lambda episode_id: episode_id % capture_every == 0,
+                )
+            else:
+                env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
         else:
             env = get_poke_worlds_environment(env_id)
         env = gym.wrappers.RecordEpisodeStatistics(env)
