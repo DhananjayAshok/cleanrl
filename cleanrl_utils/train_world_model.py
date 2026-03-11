@@ -143,11 +143,13 @@ class WorldModelDataset(Dataset):
 
     def get_embedder(self, args):
         if args.observation_embedder == "random_patch":
-            observation_embedder = PatchProjection(normalized_observations=True).to(
-                "cuda"
-            )
+            observation_embedder = PatchProjection(
+                seed=args.seed, normalized_observations=True
+            ).to("cuda")
         elif args.observation_embedder == "cnn":
-            observation_embedder = CNNEmbedder(normalized_observations=True).to("cuda")
+            observation_embedder = CNNEmbedder(
+                seed=args.seed, normalized_observations=True
+            ).to("cuda")
             # TODO: Figure out loading later.
         else:
             raise ValueError(

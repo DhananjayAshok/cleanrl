@@ -179,7 +179,7 @@ if __name__ == "__main__":
         train_dataset, batch_size=args.batch_size, shuffle=True
     )
     val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
-    observation_embedder = CNNEmbedder().to(device).train()
+    observation_embedder = CNNEmbedder(seed=args.seed).to(device).train()
     optimizer = optim.Adam(
         observation_embedder.parameters(),
         lr=args.learning_rate,
