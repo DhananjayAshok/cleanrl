@@ -334,10 +334,10 @@ if __name__ == "__main__":
             )
             rb.add(
                 obs[step].cpu().numpy(),
-                next_obs[step].cpu().numpy(),
+                next_obs.cpu().numpy(),
                 actions[step].cpu().numpy(),
                 rewards[step].cpu().numpy(),
-                terminations[step],
+                terminations,
                 infos,
             )
 
