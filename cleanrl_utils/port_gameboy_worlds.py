@@ -829,6 +829,7 @@ class PokemonReplayBuffer(ReplayBuffer):
                     self.steps,
                     save_folder,
                     run_name,
+                    self.n_pos_loops,
                 )
             else:
                 np.save(save_path + "/observations.npy", self.observations[: self.pos])
