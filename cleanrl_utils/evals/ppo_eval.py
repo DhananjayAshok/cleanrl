@@ -57,7 +57,7 @@ def evaluate(
                 curiosity_rewards = []
             obs = next_obs
 
-        return
+    return
 
 
 if __name__ == "__main__":
