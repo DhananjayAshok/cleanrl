@@ -169,7 +169,10 @@ class WorldModelDataset(Dataset):
             actions = np.load(actions_file, mmap_mode="r")
             X = []
             y = []
-            for i in range(len(observations)):
+            for i in tqdm(
+                range(len(observations)),
+                desc=f"Processing {os.path.basename(buffer_path)}",
+            ):
                 if i in last_steps:
                     continue  # skip the last step of each episode since we don't have a next observation for it
                 obs = observations[i]

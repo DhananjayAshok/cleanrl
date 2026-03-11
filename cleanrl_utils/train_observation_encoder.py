@@ -89,7 +89,10 @@ class ObservationDataset(Dataset):
         ):
             observations = np.load(observation_file, mmap_mode="r")
             X = []
-            for j in range(len(observations)):
+            for j in tqdm(
+                range(len(observations)),
+                desc=f"Processing {os.path.basename(observation_file)}",
+            ):
                 obs = observations[j, 0][
                     -1
                 ]  # Get the most recent frame from the obs stack. Assumes a single env.
