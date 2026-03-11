@@ -55,7 +55,7 @@ class Args:
     """whether to save model into the `runs/{run_name}` folder"""
     model_save_path: str | None = None
     """custom path to save the model (overrides default `runs/{run_name}/{exp_name}.cleanrl_model`)"""
-    model_save_ranks: int | None = 3
+    model_save_ranks: int | None = 1
     """ will save the final model as well as the `model_save_ranks` top models during training according to episodic return. Only applicable if `save_model` is True."""
 
     # Algorithm specific arguments
@@ -332,7 +332,14 @@ if __name__ == "__main__":
                 torch.Tensor(next_obs).to(device),
                 torch.Tensor(next_done).to(device),
             )
-            rb.add(obs, next_obs, actions, rewards, terminations, infos)
+            rb.add(
+                obs[step],
+                next_obs[step],
+                actions[step],
+                rewards[step],
+                terminations[step],
+                infos,
+            )
 
             if "final_info" in infos:
                 if isinstance(infos["final_info"], dict):
