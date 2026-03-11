@@ -812,8 +812,8 @@ class PokemonReplayBuffer(ReplayBuffer):
         super().add(obs, next_obs, action, reward, done, infos)
 
     def save(self, save_folder, run_name):
-        print("Saving replay buffer...")
         if save_folder is not None:
+            print("Saving replay buffer...")
             save_path = f"{save_folder}/{run_name}/"
             os.makedirs(save_path, exist_ok=True)
             save_size = None
