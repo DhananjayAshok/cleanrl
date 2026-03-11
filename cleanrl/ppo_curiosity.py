@@ -27,6 +27,7 @@ from cleanrl_utils.port_gameboy_worlds import (
     get_curiosity_module,
     get_gameboy_cnn_chain,
     parse_pokeworlds_id_string,
+    PokemonReplayBuffer as ReplayBuffer,
     save_all_models,
     MaxLengthList,
 )
@@ -66,6 +67,8 @@ class Args:
     """the learning rate of the optimizer"""
     num_envs: int = 1
     """the number of parallel game environments"""
+    buffer_size: int = 1000000
+    """the replay memory buffer size"""
     num_steps: int = 128
     """the number of steps to run in each environment per policy rollout"""
     anneal_lr: bool = True
@@ -241,12 +244,20 @@ if __name__ == "__main__":
         ],
         autoreset_mode=gym.vector.AutoresetMode.SAME_STEP,
     )
-    assert isinstance(envs.single_action_space, gym.spaces.Discrete), (
-        "only discrete action space is supported"
-    )
+    assert isinstance(
+        envs.single_action_space, gym.spaces.Discrete
+    ), "only discrete action space is supported"
 
     agent = Agent(envs).to(device)
     optimizer = optim.Adam(agent.parameters(), lr=args.learning_rate, eps=1e-5)
+    rb = ReplayBuffer(
+        args.buffer_size,
+        envs.single_observation_space,
+        envs.single_action_space,
+        device,
+        optimize_memory_usage=True,
+        handle_timeout_termination=False,
+    )
     curiosity_module = get_curiosity_module(args)
     model_data_list = MaxLengthList(args.model_save_ranks) if args.save_model else None
     model_reward_list = (
@@ -321,6 +332,7 @@ if __name__ == "__main__":
                 torch.Tensor(next_obs).to(device),
                 torch.Tensor(next_done).to(device),
             )
+            rb.add(obs, next_obs, actions, rewards, terminations, infos)
 
             if "final_info" in infos:
                 if isinstance(infos["final_info"], dict):
@@ -452,6 +464,7 @@ if __name__ == "__main__":
             "charts/SPS", int(global_step / (time.time() - start_time)), global_step
         )
 
+    rb.save(args.replay_buffer_save_folder, args.exp_name)
     envs.close()
     writer.close()
 

@@ -262,7 +262,7 @@ class PatchProjection(nn.Module):
 
     def make_network(self):
         torch.manual_seed(
-            self.seed
+            42
         )  # always force so that the same random projection is used even across different scripts
         self.project = nn.Sequential(
             nn.Conv2d(
@@ -273,6 +273,7 @@ class PatchProjection(nn.Module):
             ),
             nn.Flatten(),
         )
+        torch.manual_seed(self.seed)
 
     def forward(self, x):
         vector = self.project(x)
@@ -338,7 +339,7 @@ def invert_gameboy_cnn_chain(stacked=True):
 class CNNEmbedder(nn.Module):
     def __init__(self, seed, hidden_dim=128, normalized_observations=True):
         super().__init__()
-        torch.manual_seed(seed)
+        torch.manual_seed(42)
         self.norm1 = nn.BatchNorm2d(1, affine=False)
         self.internal_norm = nn.BatchNorm1d(hidden_dim)
         self.norm2 = nn.BatchNorm2d(1, affine=False)
@@ -359,6 +360,7 @@ class CNNEmbedder(nn.Module):
         )
         self.output_dim = hidden_dim
         self.normalized_observations = normalized_observations
+        torch.manual_seed(seed)
         self.reset()
 
     def do_embed(self, x):
