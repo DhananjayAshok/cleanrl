@@ -333,10 +333,10 @@ if __name__ == "__main__":
                 torch.Tensor(next_done).to(device),
             )
             rb.add(
-                obs[step],
-                next_obs[step],
-                actions[step],
-                rewards[step],
+                obs[step].cpu().numpy(),
+                next_obs[step].cpu().numpy(),
+                actions[step].cpu().numpy(),
+                rewards[step].cpu().numpy(),
                 terminations[step],
                 infos,
             )
