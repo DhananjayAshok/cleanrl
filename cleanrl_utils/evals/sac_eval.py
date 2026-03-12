@@ -32,6 +32,7 @@ def evaluate(
         obs, _ = envs.reset()
         episodic_returns = []
         curiosity_rewards = []
+        all_curiosity_rewards = []
         while len(episodic_returns) < eval_episodes:
             actions, _, _ = agent.get_action(torch.Tensor(obs).to(device))
 
@@ -53,10 +54,14 @@ def evaluate(
                         f"eval_episode={len(episodic_returns)}, episodic_return={info['episode']['r']}, curiosity_reward={sum(curiosity_rewards)}"
                     )
                     episodic_returns += [info["episode"]["r"]]
+                all_curiosity_rewards.append(float(sum(curiosity_rewards)))
                 args.curiosity_module.iterative_save()
                 args.curiosity_module.reset()
                 curiosity_rewards = []
             obs = next_obs
+    with open(os.path.join(model_path, model, "eval_reward.txt"), "w") as f:
+        for curiosity_reward in all_curiosity_rewards:
+            f.write(f"{curiosity_reward}\n")
 
     return
 
