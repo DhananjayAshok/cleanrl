@@ -39,7 +39,7 @@ class MaxLengthList:
             )
         self.data.insert(index, item)
         if len(self.data) > self.max_length:
-            self.data.pop(0)
+            self.data.pop(-1)
 
     def get_insert_index(self, item):
         """

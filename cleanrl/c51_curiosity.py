@@ -54,7 +54,7 @@ class Args:
     """whether to save model into the `runs/{run_name}` folder"""
     model_save_path: str | None = None
     """custom path to save the model """
-    model_save_ranks: int | None = 1
+    model_save_ranks: int | None = 3
     """ will save the final model as well as the `model_save_ranks` top models during training according to episodic return. Only applicable if `save_model` is True."""
     upload_model: bool = False
     """whether to upload the saved model to huggingface"""
