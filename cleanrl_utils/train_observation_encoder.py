@@ -44,7 +44,7 @@ class Args:
     """ path to save the trained observation encoder and metadata about the training buffers. """
 
     # Observation encoder training specific arguments
-    num_epochs: int = 10
+    num_epochs: int = 1000
     """number of epochs to train the observation encoder for"""
     batch_size: int = 64
     """ batch size to use for training the observation encoder"""
@@ -239,6 +239,11 @@ if __name__ == "__main__":
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
             early_stopping_counter = 0
+            os.makedirs(args.save_path, exist_ok=True)
+            torch.save(
+                observation_embedder.state_dict(),
+                os.path.join(args.save_path, "observation_encoder.pt"),
+            )
         else:
             early_stopping_counter += 1
             if early_stopping_counter >= args.early_stopping_patience:
@@ -246,12 +251,7 @@ if __name__ == "__main__":
                     f"Early stopping at epoch {epoch} with best validation loss {best_val_loss}"
                 )
                 break
-    # save the observation embedder and metadata about the training buffers
-    os.makedirs(args.save_path, exist_ok=True)
-    torch.save(
-        observation_embedder.state_dict(),
-        os.path.join(args.save_path, "observation_encoder.pt"),
-    )
+    # best model already saved during training
     dataset.save_meta(args.save_path)
     print(f"Saved observation encoder and buffer metadata to {args.save_path}")
     dataset.close()

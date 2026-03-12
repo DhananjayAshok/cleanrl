@@ -60,7 +60,7 @@ class Args:
     """ path to save the current buffer metadata and trained world model """
 
     # World model training specific arguments
-    num_epochs: int = 10
+    num_epochs: int = 1000
     """number of epochs to train the world model for"""
     batch_size: int = 64
     """ batch size to use for training the world model"""
@@ -319,6 +319,11 @@ if __name__ == "__main__":
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
             early_stopping_counter = 0
+            os.makedirs(args.buffer_save_path, exist_ok=True)
+            torch.save(
+                world_model.state_dict(),
+                os.path.join(args.buffer_save_path, "world_model.pt"),
+            )
         else:
             early_stopping_counter += 1
             if early_stopping_counter >= args.early_stopping_patience:
@@ -326,11 +331,7 @@ if __name__ == "__main__":
                     f"Early stopping at epoch {epoch} with best validation loss {best_val_loss}"
                 )
                 break
-    # save the world model
-    os.makedirs(args.buffer_save_path, exist_ok=True)
-    torch.save(
-        world_model.state_dict(), os.path.join(args.buffer_save_path, "world_model.pt")
-    )
+    # best model already saved during training
     dataset.save_meta(args.buffer_save_path)
     print(f"Saved world model and buffer metadata to {args.buffer_save_path}")
     dataset.close()
