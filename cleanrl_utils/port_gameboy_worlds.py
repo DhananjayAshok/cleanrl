@@ -88,7 +88,7 @@ def save_all_models(final_model_data, model_data_list, rewards_list, model_save_
         return
     save_model(final_model_data, None, os.path.join(model_save_folder, f"final"))
     save_ranked_models(
-        model_data_list, rewards_list, os.path.join(model_save_folder, f"rank_{i+1}")
+        model_data_list, rewards_list, model_save_folder=model_save_folder
     )
 
 
