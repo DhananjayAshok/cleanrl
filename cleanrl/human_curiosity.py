@@ -33,21 +33,21 @@ from cleanrl_utils.port_gameboy_worlds import (
 
 """
 {
-0: (<class 'poke_worlds.interface.action.LowLevelAction'>, {'low_level_action': <LowLevelActions.PRESS_ARROW_DOWN: 2>}), 
-1: (<class 'poke_worlds.interface.action.LowLevelAction'>, {'low_level_action': <LowLevelActions.PRESS_ARROW_LEFT: 4>}), 
-2: (<class 'poke_worlds.interface.action.LowLevelAction'>, {'low_level_action': <LowLevelActions.PRESS_ARROW_RIGHT: 3>}), 
-3: (<class 'poke_worlds.interface.action.LowLevelAction'>, {'low_level_action': <LowLevelActions.PRESS_ARROW_UP: 1>}), 
-4: (<class 'poke_worlds.interface.action.LowLevelAction'>, {'low_level_action': <LowLevelActions.PRESS_BUTTON_A: 5>}), 
-5: (<class 'poke_worlds.interface.action.LowLevelAction'>, {'low_level_action': <LowLevelActions.PRESS_BUTTON_B: 6>}), 
-6: (<class 'poke_worlds.interface.action.LowLevelAction'>, {'low_level_action': <LowLevelActions.PRESS_BUTTON_START: 8>})
+0: (<class 'gameboy_worlds.interface.action.LowLevelAction'>, {'low_level_action': <LowLevelActions.PRESS_ARROW_DOWN: 2>}), 
+1: (<class 'gameboy_worlds.interface.action.LowLevelAction'>, {'low_level_action': <LowLevelActions.PRESS_ARROW_LEFT: 4>}), 
+2: (<class 'gameboy_worlds.interface.action.LowLevelAction'>, {'low_level_action': <LowLevelActions.PRESS_ARROW_RIGHT: 3>}), 
+3: (<class 'gameboy_worlds.interface.action.LowLevelAction'>, {'low_level_action': <LowLevelActions.PRESS_ARROW_UP: 1>}), 
+4: (<class 'gameboy_worlds.interface.action.LowLevelAction'>, {'low_level_action': <LowLevelActions.PRESS_BUTTON_A: 5>}), 
+5: (<class 'gameboy_worlds.interface.action.LowLevelAction'>, {'low_level_action': <LowLevelActions.PRESS_BUTTON_B: 6>}), 
+6: (<class 'gameboy_worlds.interface.action.LowLevelAction'>, {'low_level_action': <LowLevelActions.PRESS_BUTTON_START: 8>})
 }
 """
 
 
 input_sequence = []
-assert len(input_sequence) > 0, (
-    f"Please fill in the input_sequence with a list of actions to take in the environment."
-)
+assert (
+    len(input_sequence) > 0
+), f"Please fill in the input_sequence with a list of actions to take in the environment."
 
 
 @dataclass
@@ -109,10 +109,10 @@ class Args:
 
 
 def make_env(env_id, seed, idx, capture_video, run_name, gamma=0.99):
-    if env_id.startswith("poke_worlds"):
-        from cleanrl_utils.port_gameboy_worlds import poke_worlds_make_env
+    if env_id.startswith("gameboy_worlds"):
+        from cleanrl_utils.port_gameboy_worlds import gameboy_worlds_make_env
 
-        return poke_worlds_make_env(
+        return gameboy_worlds_make_env(
             env_id, seed, idx, capture_video, run_name, gamma=gamma
         )
 
@@ -172,9 +172,9 @@ if __name__ == "__main__":
         ],
         autoreset_mode=gym.vector.AutoresetMode.SAME_STEP,
     )
-    assert isinstance(envs.single_action_space, gym.spaces.Discrete), (
-        "only discrete action space is supported"
-    )
+    assert isinstance(
+        envs.single_action_space, gym.spaces.Discrete
+    ), "only discrete action space is supported"
 
     if len(input_sequence) == 0:
         raise ValueError(

@@ -124,10 +124,10 @@ class Args:
 
 
 def make_env(env_id, idx, capture_video, run_name, gamma=0.99):
-    if env_id.startswith("poke_worlds"):
-        from cleanrl_utils.port_gameboy_worlds import poke_worlds_make_env
+    if env_id.startswith("gameboy_worlds"):
+        from cleanrl_utils.port_gameboy_worlds import gameboy_worlds_make_env
 
-        return poke_worlds_make_env(
+        return gameboy_worlds_make_env(
             env_id, None, idx, capture_video, run_name, gamma=gamma
         )
 

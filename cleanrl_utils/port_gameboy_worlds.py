@@ -142,15 +142,15 @@ class OneOfToDiscreteWrapper(gym.ActionWrapper):
 def parse_pokeworlds_id_string(id_string):
     """
 
-    :param id_string: should be in format "poke_worlds-game-environment_variant-init_state-controller_variant-max_steps-save_video"
-    Example: poke_worlds-pokemon_red-starter_explore-none-low_level-20-true
+    :param id_string: should be in format "gameboy_worlds-game-environment_variant-init_state-controller_variant-max_steps-save_video"
+    Example: gameboy_worlds-pokemon_red-starter_explore-none-low_level-20-true
     :return: tuple (game, environment_variant, init_state, controller_variant, max_steps, save_video)
     """
     #
     parts = id_string.split("-")
-    if len(parts) != 7 or parts[0] != "poke_worlds":
+    if len(parts) != 7 or parts[0] != "gameboy_worlds":
         raise ValueError(
-            f"Invalid ID string format. Expected 'poke_worlds-game-environment_variant-init_state-controller_variant-max_steps-save_video'. Got {id_string}"
+            f"Invalid ID string format. Expected 'gameboy_worlds-game-environment_variant-init_state-controller_variant-max_steps-save_video'. Got {id_string}"
         )
     (
         _,
@@ -179,7 +179,7 @@ def parse_pokeworlds_id_string(id_string):
     )
 
 
-def get_poke_worlds_environment(id_string, render_mode=None):
+def get_gameboy_worlds_environment(id_string, render_mode=None):
     game, environment_variant, init_state, controller_variant, max_steps, save_video = (
         parse_pokeworlds_id_string(id_string)
     )
@@ -201,7 +201,7 @@ def get_poke_worlds_environment(id_string, render_mode=None):
 def get_pokeworlds_n_actions(id_string=None):
     if len(OneOfToDiscreteWrapper.STATIC_MAP) == 0:
         if id_string is not None:
-            _ = get_poke_worlds_environment(id_string)
+            _ = get_gameboy_worlds_environment(id_string)
         else:
             raise ValueError(
                 f"STATIC_MAP not initialized yet! Please provide an id_string to initialize the environment and action mapping."
@@ -209,7 +209,7 @@ def get_pokeworlds_n_actions(id_string=None):
     return len(OneOfToDiscreteWrapper.STATIC_MAP)
 
 
-def poke_worlds_make_env(env_id, seed, idx, capture_video, run_name, gamma=0.99):
+def gameboy_worlds_make_env(env_id, seed, idx, capture_video, run_name, gamma=0.99):
     if capture_video == 1:
         capture_video = True
     if isinstance(capture_video, int):
@@ -220,7 +220,7 @@ def poke_worlds_make_env(env_id, seed, idx, capture_video, run_name, gamma=0.99)
 
     def thunk():
         if capture_video and idx == 0:
-            env = get_poke_worlds_environment(env_id, render_mode="rgb_array")
+            env = get_gameboy_worlds_environment(env_id, render_mode="rgb_array")
             if capture_every is not None:
                 env = gym.wrappers.RecordVideo(
                     env,
@@ -230,7 +230,7 @@ def poke_worlds_make_env(env_id, seed, idx, capture_video, run_name, gamma=0.99)
             else:
                 env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
         else:
-            env = get_poke_worlds_environment(env_id)
+            env = get_gameboy_worlds_environment(env_id)
         env = gym.wrappers.RecordEpisodeStatistics(env)
         env = gym.wrappers.ResizeObservation(
             env, (144, 160)
@@ -247,7 +247,7 @@ def poke_worlds_make_env(env_id, seed, idx, capture_video, run_name, gamma=0.99)
 
 class PatchProjection(nn.Module):
     """
-    Works with the 144 x 160 pixel observations from poke_worlds.
+    Works with the 144 x 160 pixel observations from gameboy_worlds.
     Divides the image into 16x16 patches, applies a random linear projection to each patch, and concatenates the results.
     """
 
