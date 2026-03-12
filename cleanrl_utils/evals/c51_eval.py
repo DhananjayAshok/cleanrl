@@ -70,10 +70,10 @@ def evaluate(
                 args.curiosity_module.reset()
                 curiosity_rewards = []
             obs = next_obs
-    # save the episodic returns to model_path/model/eval_reward.txt, each line should be the episodic return of one episode
-    with open(os.path.join(model_path, model, "eval_reward.txt"), "w") as f:
-        for curiosity_reward in all_curiosity_rewards:
-            f.write(f"{curiosity_reward}\n")
+        # save the episodic returns to model_path/model/eval_reward.txt, each line should be the episodic return of one episode
+        with open(os.path.join(model_path, model, "eval_reward.txt"), "w") as f:
+            for curiosity_reward in all_curiosity_rewards:
+                f.write(f"{curiosity_reward}\n")
     return None
 
 

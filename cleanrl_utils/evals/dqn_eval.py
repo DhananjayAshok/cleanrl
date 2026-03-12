@@ -59,9 +59,9 @@ def evaluate(
                 args.curiosity_module.reset()
                 curiosity_rewards = []
             obs = next_obs
-    with open(os.path.join(model_path, model, "eval_reward.txt"), "w") as f:
-        for curiosity_reward in all_curiosity_rewards:
-            f.write(f"{curiosity_reward}\n")
+        with open(os.path.join(model_path, model, "eval_reward.txt"), "w") as f:
+            for curiosity_reward in all_curiosity_rewards:
+                f.write(f"{curiosity_reward}\n")
     return None
 
 
