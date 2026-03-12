@@ -10,6 +10,21 @@ import os
 import pickle
 from cleanrl_utils.buffers import ReplayBuffer
 from matplotlib import pyplot as plt
+from time import perf_counter_ns
+
+
+class Profiler:
+    last_event = None
+    last_event_time = None
+
+    @staticmethod
+    def event(name):
+        current_time = perf_counter_ns()
+        if Profiler.last_event is not None:
+            elapsed_time = (current_time - Profiler.last_event_time) / 1e6
+            print(f"{Profiler.last_event}->{name} | {elapsed_time:.2f} ms")
+        Profiler.last_event = name
+        Profiler.last_event_time = current_time
 
 
 class MaxLengthList:
