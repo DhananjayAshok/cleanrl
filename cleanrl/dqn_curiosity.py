@@ -356,6 +356,7 @@ if __name__ == "__main__":
         save_all_models(
             final_model_data=final_model_data,
             model_data_list=model_data_list,
+            rewards_list=model_reward_list,
             model_save_folder=args.model_save_path,
         )
 

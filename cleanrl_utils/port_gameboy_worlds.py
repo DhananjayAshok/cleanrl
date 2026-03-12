@@ -62,24 +62,34 @@ class MaxLengthList:
         return self.__repr__()
 
 
-def save_model(model_data, model_save_folder):
+def save_model(model_data, reward, model_save_folder):
     os.makedirs(model_save_folder, exist_ok=True)
     model_save_path = os.path.join(model_save_folder, "model.pt")
     torch.save(model_data, model_save_path)
-    print(f"model saved to {model_save_path}")
+    print(
+        f"model saved to {model_save_path}, achieving reward {reward} (final will always be None)"
+    )
+    # save a reward text file as well for easy reference
+    if reward is not None:
+        if isinstance(reward, np.ndarray) or isinstance(reward, torch.Tensor):
+            reward = reward.item()
+        with open(os.path.join(model_save_folder, "train_reward.txt"), "w") as f:
+            f.write(f"{reward}")
 
 
-def save_ranked_models(model_data_list, model_save_folder):
-    for i, model_data in enumerate(model_data_list):
-        save_model(model_data, os.path.join(model_save_folder, f"rank_{i+1}"))
+def save_ranked_models(model_data_list, rewards_list, model_save_folder):
+    for i, (model_data, reward) in enumerate(zip(model_data_list, rewards_list)):
+        save_model(model_data, reward, os.path.join(model_save_folder, f"rank_{i+1}"))
 
 
-def save_all_models(final_model_data, model_data_list, model_save_folder):
+def save_all_models(final_model_data, model_data_list, rewards_list, model_save_folder):
     if model_save_folder is None:
         print(f"Warning: model_save_folder is None. Models will not be saved.")
         return
-    save_model(final_model_data, os.path.join(model_save_folder, f"final"))
-    save_ranked_models(model_data_list, model_save_folder)
+    save_model(final_model_data, None, os.path.join(model_save_folder, f"final"))
+    save_ranked_models(
+        model_data_list, rewards_list, os.path.join(model_save_folder, f"rank_{i+1}")
+    )
 
 
 def depathify(string):
