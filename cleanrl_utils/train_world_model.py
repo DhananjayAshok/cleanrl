@@ -62,7 +62,7 @@ class Args:
     # World model training specific arguments
     num_epochs: int = 1000
     """number of epochs to train the world model for"""
-    batch_size: int = 64
+    batch_size: int = 256
     """ batch size to use for training the world model"""
     learning_rate: float = 1e-3
     """ learning rate to use for training the world model"""
