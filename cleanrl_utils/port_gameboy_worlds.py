@@ -1,5 +1,4 @@
-from poke_worlds import get_environment
-from poke_worlds.emulation import StateParser
+from gameboy_worlds import get_environment
 import gymnasium as gym
 from gymnasium.spaces import Discrete
 import numpy as np
