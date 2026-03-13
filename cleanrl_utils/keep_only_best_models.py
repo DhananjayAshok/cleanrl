@@ -9,7 +9,7 @@ from dataclasses import dataclass
 @dataclass
 class Args:
     model_dir: str
-    """ Path to a directory /path/to/model_dir/<exp_name>/(model.pt and eval_rewards.txt) """
+    """ Path to a directory /path/to/model_dir/<exp_name>/<model_rank>/(model.pt and eval_rewards.txt) """
     best_k: int = 10
     """ Number of best models to keep. The models will be sorted by the average episodic return in the eval_reward.txt file. """
     clear_loser_replay_buffer: bool = False
@@ -29,17 +29,23 @@ if __name__ == "__main__":
         raise ValueError(f"model_dir does not exist: {args.model_dir}")
 
     experiment_dirs = os.listdir(args.model_dir)
-    if len(experiment_dirs) < args.best_k:
-        raise ValueError(
-            f"Number of experiment dirs in model_dir is less than best_k: {len(experiment_dirs)} < {args.best_k}"
-        )
-
+    total_models = 0
+    model_dirs = {}
     for exp_name in experiment_dirs:
-        exp_path = os.path.join(args.model_dir, exp_name)
-        if not os.path.isfile(os.path.join(exp_path, "model.pt")):
-            raise ValueError(f"Missing model.pt in {exp_path}")
-        if not os.path.isfile(os.path.join(exp_path, "eval_rewards.txt")):
-            raise ValueError(f"Missing eval_rewards.txt in {exp_path}")
+        for model_dir in os.listdir(os.path.join(args.model_dir, exp_name)):
+            true_model_dir = os.path.join(args.model_dir, exp_name, model_dir)
+            if not os.path.exists(true_model_dir + "/model.pt"):
+                raise ValueError(f"Couldn't find model.pt in {true_model_dir}")
+            if not os.path.exists(true_model_dir + "/eval_rewards.txt"):
+                raise ValueError(f"Couldn't find eval_rewards.txt in {true_model_dir}")
+            model_dirs[exp_name].append(model_dir)
+            total_models += 1
+
+    if len(total_models) < args.best_k:
+        print(
+            f"Warning: Number of experiment dirs in model_dir is less than best_k: {total_models} < {args.best_k}"
+        )
+        exit(0)
 
     if args.clear_loser_high_reward_trajectories and not args.clear_loser_replay_buffer:
         raise ValueError(
@@ -66,18 +72,22 @@ if __name__ == "__main__":
                 )
 
     rewards = {}
-    for exp_name in tqdm(experiment_dirs, desc="Reading rewards"):
-        rewards_path = os.path.join(args.model_dir, exp_name, "eval_rewards.txt")
-        with open(rewards_path, "r") as f:
-            values = [float(line.strip()) for line in f if line.strip()]
-        rewards[exp_name] = sum(values) / len(values) if values else float("-inf")
+    for exp_name in tqdm(model_dirs, desc="Reading rewards"):
+        for model_dir in model_dirs[exp_name]:
+            true_model_dir = os.path.join(args.model_dir, exp_name, model_dir)
+            rewards_path = os.path.join(true_model_dir, "eval_rewards.txt")
+            with open(rewards_path, "r") as f:
+                values = [float(line.strip()) for line in f if line.strip()]
+            rewards[(exp_name, model_dir)] = (
+                sum(values) / len(values) if values else float("-inf")
+            )
 
     sorted_dirs = sorted(rewards, key=lambda x: rewards[x], reverse=True)
     best_dirs = set(sorted_dirs[: args.best_k])
     loser_dirs = [d for d in sorted_dirs if d not in best_dirs]
 
-    for exp_name in tqdm(loser_dirs, desc="Deleting losers"):
-        loser_model_path = os.path.join(args.model_dir, exp_name)
+    for exp_name, model_dir in tqdm(loser_dirs, desc="Deleting losers"):
+        loser_model_path = os.path.join(args.model_dir, exp_name, model_dir)
         shutil.rmtree(loser_model_path)
 
         if args.clear_loser_replay_buffer:
@@ -97,5 +107,5 @@ if __name__ == "__main__":
 
     if args.verbose:
         print("Kept the following best models:")
-        for exp_name in best_dirs:
-            print(f"  - {exp_name} | Reward: {rewards[exp_name]}")
+        for winner_name in best_dirs:
+            print(f"  - {winner_name} | Reward: {rewards[winner_name]}")
