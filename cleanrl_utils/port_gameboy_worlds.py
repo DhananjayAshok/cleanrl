@@ -998,9 +998,11 @@ def save_outlier_trajectories(
         traj_actions = [None for i in range(max_trajectory_length)]
         traj_rewards = [None for i in range(max_trajectory_length)]
         current_index = high_reward_index
-        traj_observations[-1] = observations[current_index]
+        traj_observations[-1] = observations[current_index][
+            0, -1
+        ]  # assume single env and get last frame in the stack
         for i in range(max_trajectory_length):
-            traj_observations[-2 - i] = observations[current_index - 1]
+            traj_observations[-2 - i] = observations[current_index - 1][0, -1]
             traj_actions[-1 - i] = actions[current_index - 1]
             traj_rewards[-1 - i] = rewards[current_index - 1]
             if steps[current_index] == 0:
