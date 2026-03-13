@@ -91,7 +91,7 @@ class ObservationDataset(Dataset):
             X = []
             for j in tqdm(
                 range(len(observations)),
-                desc=f"Processing {os.path.basename(observation_file)}",
+                leave=False,
             ):
                 obs = observations[j, 0][
                     -1

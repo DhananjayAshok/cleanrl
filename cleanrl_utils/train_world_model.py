@@ -171,7 +171,6 @@ class WorldModelDataset(Dataset):
             y = []
             for i in tqdm(
                 range(len(observations)),
-                desc=f"Processing {os.path.basename(buffer_path)}",
                 leave=False,
             ):
                 if i in last_steps:

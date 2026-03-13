@@ -928,6 +928,96 @@ def infer_global_step(index, n_pos_loops, buffer_size):
     return n_pos_loops * buffer_size + index
 
 
+def save_transition_visualizations(
+    observations,
+    actions,
+    rewards,
+    steps,
+    save_folder,
+    run_name,
+    n_pos_loops,
+    top_sample_indices,
+    bottom_sample_indices,
+    n_plots=3,
+):
+    if n_plots <= 0:
+        return
+    save_path = f"{save_folder}/{run_name}/transition_visualizations/"
+    os.makedirs(save_path, exist_ok=True)
+    buffer_size = len(rewards)
+    for i in range(n_plots):
+        observation, new_observation, action, reward, step = (
+            observations[top_sample_indices[i]],
+            observations[top_sample_indices[i] + 1],
+            actions[top_sample_indices[i]],
+            rewards[top_sample_indices[i]],
+            steps[top_sample_indices[i]],
+        )
+        visualize_transition(
+            observation,
+            new_observation,
+            action,
+            reward,
+            infer_global_step(top_sample_indices[i], n_pos_loops, buffer_size),
+            step,
+            save_path + f"top_transition_{i}.png",
+        )
+        """
+        observation, new_observation, action, reward, step = (
+            observations[bottom_sample_indices[i]],
+            observations[bottom_sample_indices[i] + 1],
+            actions[bottom_sample_indices[i]],
+            rewards[bottom_sample_indices[i]],
+            steps[bottom_sample_indices[i]],
+        )
+        visualize_transition(
+            observation,
+            new_observation,
+            action,
+            reward,
+            infer_global_step(bottom_sample_indices[i], n_pos_loops, buffer_size),
+            step,
+            save_path + f"bottom_transition_{i}.png",
+        )
+        """
+    print(f"Saved transition visualizations for top {n_plots} rewards to {save_path}")
+
+
+def save_outlier_trajectories(
+    observations,
+    actions,
+    rewards,
+    steps,
+    load_path,
+    high_reward_indices,
+    max_trajectory_length=10,
+):
+    trajectories = []
+    for high_reward_index in high_reward_indices:
+        traj_observations = [None for i in range(len(max_trajectory_length) + 1)]
+        traj_actions = [None for i in range(len(max_trajectory_length))]
+        traj_rewards = [None for i in range(len(max_trajectory_length))]
+        current_index = high_reward_index
+        traj_observations[-1] = observations[current_index]
+        for i in range(max_trajectory_length):
+            traj_observations[-2 - i] = observations[current_index - 1]
+            traj_actions[-1 - i] = actions[current_index - 1]
+            traj_rewards[-1 - i] = rewards[current_index - 1]
+            if steps[current_index] == 0:
+                break
+            current_index -= 1
+        traj_observations = [
+            traj_obs for traj_obs in traj_observations if traj_obs is not None
+        ]
+        traj_actions = [traj_act for traj_act in traj_actions if traj_act is not None]
+        traj_rewards = [traj_rew for traj_rew in traj_rewards if traj_rew is not None]
+        trajectories.append((traj_observations, traj_actions, traj_rewards))
+    pickle.dump(
+        trajectories,
+        open(load_path + "high_reward_trajectories.pkl", "wb"),
+    )
+
+
 def save_outliers(
     observations,
     actions,
@@ -936,7 +1026,7 @@ def save_outliers(
     save_folder,
     run_name,
     n_pos_loops,
-    n_samples=20,
+    frac_samples=0.05,
     outlier_threshold=2,
 ):
     print("Analyzing rewards for outliers and visualization...")
@@ -957,6 +1047,7 @@ def save_outliers(
     normalized_rewards = (rewards - reward_mean) / (reward_std + 1e-8)
     # identify the indices of the top and bottom n_samples rewards
     sorted_indices = np.argsort(normalized_rewards, axis=0)
+    n_samples = int(len(rewards) * frac_samples)
     top_sample_indices = sorted_indices[-n_samples:]
     top_sample_indices = top_sample_indices[::-1]
     bottom_sample_indices = sorted_indices[:n_samples]
@@ -966,45 +1057,25 @@ def save_outliers(
         print(
             f"Saved {len(high_reward_indices)} reward indices to {load_path + 'high_reward_indices.npy'}"
         )
+        save_outlier_trajectories(
+            observations,
+            actions,
+            rewards,
+            steps,
+            load_path,
+            high_reward_indices,
+        )
     else:
         print("No high reward outliers found.")
 
-    save_path = f"{save_folder}/{run_name}/transition_visualizations/"
-    os.makedirs(save_path, exist_ok=True)
-    buffer_size = len(rewards)
-    for i in range(n_samples):
-        observation, new_observation, action, reward, step = (
-            observations[top_sample_indices[i]],
-            observations[top_sample_indices[i] + 1],
-            actions[top_sample_indices[i]],
-            rewards[top_sample_indices[i]],
-            steps[top_sample_indices[i]],
-        )
-        visualize_transition(
-            observation,
-            new_observation,
-            action,
-            reward,
-            infer_global_step(top_sample_indices[i], n_pos_loops, buffer_size),
-            step,
-            save_path + f"top_transition_{i}.png",
-        )
-        observation, new_observation, action, reward, step = (
-            observations[bottom_sample_indices[i]],
-            observations[bottom_sample_indices[i] + 1],
-            actions[bottom_sample_indices[i]],
-            rewards[bottom_sample_indices[i]],
-            steps[bottom_sample_indices[i]],
-        )
-        visualize_transition(
-            observation,
-            new_observation,
-            action,
-            reward,
-            infer_global_step(bottom_sample_indices[i], n_pos_loops, buffer_size),
-            step,
-            save_path + f"bottom_transition_{i}.png",
-        )
-    print(
-        f"Saved transition visualizations for top and bottom {n_samples} rewards to {save_path}"
+    save_transition_visualizations(
+        observations,
+        actions,
+        rewards,
+        steps,
+        save_folder,
+        run_name,
+        n_pos_loops,
+        top_sample_indices,
+        bottom_sample_indices,
     )
