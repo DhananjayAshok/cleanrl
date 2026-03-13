@@ -994,9 +994,9 @@ def save_outlier_trajectories(
 ):
     trajectories = []
     for high_reward_index in high_reward_indices:
-        traj_observations = [None for i in range(len(max_trajectory_length) + 1)]
-        traj_actions = [None for i in range(len(max_trajectory_length))]
-        traj_rewards = [None for i in range(len(max_trajectory_length))]
+        traj_observations = [None for i in range(max_trajectory_length + 1)]
+        traj_actions = [None for i in range(max_trajectory_length)]
+        traj_rewards = [None for i in range(max_trajectory_length)]
         current_index = high_reward_index
         traj_observations[-1] = observations[current_index]
         for i in range(max_trajectory_length):
