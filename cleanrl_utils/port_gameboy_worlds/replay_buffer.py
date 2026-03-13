@@ -80,8 +80,7 @@ class PokemonReplayBuffer(ReplayBuffer):
                     self.actions,
                     self.rewards,
                     self.steps,
-                    save_folder,
-                    run_name,
+                    save_path,
                     self.n_pos_loops,
                 )
             else:
@@ -96,8 +95,7 @@ class PokemonReplayBuffer(ReplayBuffer):
                     self.actions[: self.pos],
                     self.rewards[: self.pos],
                     self.steps[: self.pos],
-                    save_folder,
-                    run_name,
+                    save_path,
                     self.n_pos_loops,
                 )
             print(f"Saved replay buffer with {save_size} entries to {save_path}")

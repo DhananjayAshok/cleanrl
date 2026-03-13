@@ -65,7 +65,6 @@ def save_transition_visualizations(
     rewards,
     steps,
     save_folder,
-    run_name,
     n_pos_loops,
     top_sample_indices,
     bottom_sample_indices,
@@ -73,7 +72,7 @@ def save_transition_visualizations(
 ):
     if n_plots <= 0:
         return
-    save_path = f"{save_folder}/{run_name}/transition_visualizations/"
+    save_path = f"{save_folder}/transition_visualizations/"
     os.makedirs(save_path, exist_ok=True)
     buffer_size = len(rewards)
     for i in range(n_plots):
@@ -160,13 +159,12 @@ def save_outliers(
     rewards,
     steps,
     save_folder,
-    run_name,
     n_pos_loops,
     frac_samples=0.05,
     outlier_threshold=2.5,
 ):
     print("Analyzing rewards for outliers and visualization...")
-    load_path = f"{save_folder}/{run_name}/"
+    load_path = f"{save_folder}/"
     new_episode_indices = np.where(steps == 0)[0]
     last_step_indices = new_episode_indices - 1
     # replace -1 values with the last index of the buffer for the first episode
@@ -210,7 +208,6 @@ def save_outliers(
         rewards,
         steps,
         save_folder,
-        run_name,
         n_pos_loops,
         top_sample_indices,
         bottom_sample_indices,

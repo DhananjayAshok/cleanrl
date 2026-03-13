@@ -413,6 +413,21 @@ if __name__ == "__main__":
     envs.close()
     writer.close()
 
+    # rb saves to f"{save_folder}/{exp_name}/transition_visualizations/"
+    rb_image_save_path = (
+        f"{args.replay_buffer_save_folder}/{args.exp_name}/transition_visualizations/"
+    )
+    if os.path.exists(rb_image_save_path):
+        for image_path in os.listdir(rb_image_save_path):
+            filename = image_path.strip(".png")
+            wandb.log(
+                {
+                    f"Transitions/{filename}": wandb.Image(
+                        os.path.join(rb_image_save_path, image_path)
+                    )
+                }
+            )
+
     if args.capture_video:
         video_candidates = [
             f for f in os.listdir(f"videos/{run_name}") if f.endswith(".mp4")
