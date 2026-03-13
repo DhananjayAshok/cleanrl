@@ -172,6 +172,7 @@ class WorldModelDataset(Dataset):
             for i in tqdm(
                 range(len(observations)),
                 desc=f"Processing {os.path.basename(buffer_path)}",
+                leave=False,
             ):
                 if i in last_steps:
                     continue  # skip the last step of each episode since we don't have a next observation for it
