@@ -1018,6 +1018,9 @@ def save_outlier_trajectories(
         trajectories,
         open(load_path + "high_reward_trajectories.pkl", "wb"),
     )
+    print(
+        f"Saved {len(trajectories)} high reward trajectories to {load_path + 'high_reward_trajectories.pkl'}"
+    )
 
 
 def save_outliers(
@@ -1029,7 +1032,7 @@ def save_outliers(
     run_name,
     n_pos_loops,
     frac_samples=0.05,
-    outlier_threshold=2,
+    outlier_threshold=2.5,
 ):
     print("Analyzing rewards for outliers and visualization...")
     load_path = f"{save_folder}/{run_name}/"
