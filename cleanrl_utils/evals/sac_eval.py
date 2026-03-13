@@ -18,23 +18,23 @@ def evaluate(
     args=None,
 ):
     models = os.listdir(model_path)
-    for model in models:
-        print(f"evaluating model {model}...")
-        full_model_path = os.path.join(model_path, model, "model.pt")
+    for model_name in models:
+        print(f"evaluating model {model_name}...")
+        full_model_path = os.path.join(model_path, model_name, "model.pt")
         envs = gym.vector.SyncVectorEnv(
             [make_env(env_id, 0, 0, capture_video, run_name, gamma)],
             autoreset_mode=gym.vector.AutoresetMode.SAME_STEP,
         )
-        agent = Model(envs).to(device)
-        agent.load_state_dict(torch.load(full_model_path, map_location=device))
-        agent.eval()
+        model = Model(envs).to(device)
+        model.load_state_dict(torch.load(full_model_path, map_location=device))
+        model.eval()
 
         obs, _ = envs.reset()
         episodic_returns = []
         curiosity_rewards = []
         all_curiosity_rewards = []
         while len(episodic_returns) < eval_episodes:
-            actions, _, _ = agent.get_action(torch.Tensor(obs).to(device))
+            actions, _, _ = model.get_action(torch.Tensor(obs).to(device))
 
             next_obs, rewards, terminations, truncations, infos = envs.step(
                 actions.cpu().numpy()
@@ -59,7 +59,7 @@ def evaluate(
                 args.curiosity_module.reset()
                 curiosity_rewards = []
             obs = next_obs
-        with open(os.path.join(model_path, model, "eval_reward.txt"), "w") as f:
+        with open(os.path.join(model_path, model_name, "eval_reward.txt"), "w") as f:
             for curiosity_reward in all_curiosity_rewards:
                 f.write(f"{curiosity_reward}\n")
 
