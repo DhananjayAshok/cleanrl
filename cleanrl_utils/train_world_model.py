@@ -60,7 +60,7 @@ class Args:
     """ path to save the current buffer metadata and trained world model """
 
     # World model training specific arguments
-    num_epochs: int = 1000
+    num_epochs: int = 100000
     """number of epochs to train the world model for"""
     batch_size: int = 256
     """ batch size to use for training the world model"""

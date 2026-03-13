@@ -44,7 +44,7 @@ class Args:
     """ path to save the trained observation encoder and metadata about the training buffers. """
 
     # Observation encoder training specific arguments
-    num_epochs: int = 1000
+    num_epochs: int = 100000
     """number of epochs to train the observation encoder for"""
     batch_size: int = 256
     """ batch size to use for training the observation encoder"""
