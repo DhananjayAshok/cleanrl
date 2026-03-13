@@ -96,26 +96,24 @@ class WorldModelDataset(Dataset):
     def __len__(self):
         return self.total_length
 
+    def get_all_root_folders(self, replay_buffer_folder):
+        folders = []
+        for root, dirs, files in os.walk(replay_buffer_folder):
+            for file in files:
+                if file == "observations.npy":
+                    folders.append(root)
+        return list(set(folders))
+
     def get_buffer_paths(self, args):
         all_buffer_paths = []
         if args.latest_replay_buffer_folder:
-            contents = os.listdir(args.latest_replay_buffer_folder)
-            if (
-                "observations.npy" in contents
-            ):  # then its a run folder with a single replay buffer
-                all_buffer_paths.append(args.latest_replay_buffer_folder)
-            else:  # then its a folder containing multiple run folders, we want to use all of them
-                for subfolder in contents:
-                    subfolder_path = os.path.join(
-                        args.latest_replay_buffer_folder, subfolder
-                    )
-                    if os.path.isdir(subfolder_path):
-                        if "observations.npy" in os.listdir(subfolder_path):
-                            all_buffer_paths.append(subfolder_path)
-                        else:  # In case some run is ongoing. In general, we want to avoid this.
-                            print(
-                                f"Warning: {subfolder_path} does not contain a replay buffer, skipping..."
-                            )
+            all_root_paths = self.get_all_root_folders(args.latest_replay_buffer_folder)
+            if len(all_root_paths) == 0:
+                print(
+                    f"WARNING: No replay buffers found in latest_replay_buffer_folder {args.latest_replay_buffer_folder}."
+                )
+            else:
+                all_buffer_paths.extend(all_root_paths)
         if args.buffer_load_path:
             # previous_buffer_metadata is stored in buffer_load_path + "/buffer_metadata.txt" each line of this file is a path to a replay buffer that we will use for training the world model
             with open(
