@@ -18,7 +18,7 @@ class Args:
     """ If False, clear_loser_replay buffer will leave the high reward trajectories """
     replay_buffer_path: str = None
     """ Path to a directory /path/to/replay_buffer_path/<exp_name>/(replay buffer info like observations.npy). Must match the run names of model_dir exactly """
-    verbose: bool = False
+    verbose: bool = True
     """ If True, print the names of the winning models and their rewards. """
 
 
