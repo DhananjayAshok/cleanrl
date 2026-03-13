@@ -132,7 +132,7 @@ if __name__ == "__main__":
         args.capture_video = max(1, n_episodes // 10)
     args.exp_name = depathify(args.exp_name)
     assert args.num_envs == 1, "vectorized envs are not supported at the moment"
-    run_name = f"{args.exp_name}__{args.seed}__{int(time.time())}"
+    run_name = f"{args.exp_name}__{int(time.time())}"
     if args.track:
         import wandb
 

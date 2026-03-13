@@ -208,7 +208,7 @@ if __name__ == "__main__":
     ), "buffer save path and load path cannot be the same for this algorithm."
 
     args.exp_name = depathify(args.exp_name)
-    run_name = f"{args.exp_name}__{args.seed}__{int(time.time())}"
+    run_name = f"{args.exp_name}__{int(time.time())}"
     args.run_name = run_name
     # add run_name to args for easier access in other functions
     if args.track:
