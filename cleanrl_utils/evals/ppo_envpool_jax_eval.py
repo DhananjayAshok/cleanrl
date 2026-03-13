@@ -17,7 +17,7 @@ def evaluate(
     eval_episodes: int,
     run_name: str,
     Model: nn.Module,
-    capture_video: bool = True,
+    capture_video: bool = False,
     seed=1,
     args=None,
 ):

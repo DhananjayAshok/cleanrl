@@ -18,7 +18,7 @@ def evaluate(
     run_name: str,
     Model: nn.Module,
     epsilon: float = 0.05,
-    capture_video: bool = True,
+    capture_video: bool = False,
     seed=1,
     args=None,
 ):

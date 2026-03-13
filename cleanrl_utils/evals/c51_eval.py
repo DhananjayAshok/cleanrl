@@ -17,7 +17,7 @@ def evaluate(
     Model: torch.nn.Module,
     device: torch.device = torch.device("cpu"),
     epsilon: float = 0.05,
-    capture_video: bool = True,
+    capture_video: bool = False,
     args=None,
 ):
     models = os.listdir(model_path)

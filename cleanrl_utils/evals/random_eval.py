@@ -14,7 +14,7 @@ def evaluate(
     run_name: str,
     Model: None,
     device: torch.device = None,
-    capture_video: bool = True,
+    capture_video: bool = False,
     args=None,
 ):
     envs = gym.vector.SyncVectorEnv(
