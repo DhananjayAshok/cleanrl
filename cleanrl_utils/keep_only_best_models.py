@@ -42,7 +42,7 @@ if __name__ == "__main__":
             model_dirs[exp_name].append(model_dir)
             total_models += 1
 
-    if len(total_models) < args.best_k:
+    if total_models < args.best_k:
         print(
             f"Warning: Number of experiment dirs in model_dir is less than best_k: {total_models} < {args.best_k}"
         )
