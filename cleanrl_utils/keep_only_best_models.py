@@ -16,8 +16,8 @@ class Args:
     """ If True, the replay buffers of the models that are not in the best k will be deleted to save disk space. """
     clear_loser_high_reward_trajectories: bool = False
     """ If False, do not clear the high reward trajectories when deleting buffer """
-    replay_buffer_path: str = None
-    """ Path to a directory /path/to/replay_buffer_path/<exp_name>/(replay buffer info like observations.npy). Must match the run names of model_dir exactly """
+    replay_buffer_save_folder: str = None
+    """ Path to a directory /path/to/replay_buffer_save_folder/<exp_name>/(replay buffer info like observations.npy). Must match the run names of model_dir exactly """
     verbose: bool = True
     """ If True, print the names of the winning models and their rewards. """
 
@@ -54,22 +54,22 @@ if __name__ == "__main__":
         )
 
     if args.clear_loser_replay_buffer:
-        if args.replay_buffer_path is None:
+        if args.replay_buffer_save_folder is None:
             raise ValueError(
-                "replay_buffer_path must be provided when clear_loser_replay_buffer is True"
+                "replay_buffer_save_folder must be provided when clear_loser_replay_buffer is True"
             )
-        rb_dirs = set(os.listdir(args.replay_buffer_path))
+        rb_dirs = set(os.listdir(args.replay_buffer_save_folder))
         for exp_name in experiment_dirs:
             if exp_name not in rb_dirs:
                 raise ValueError(
                     f"replay_buffer_path is missing experiment dir: {exp_name}"
                 )
             obs_path = os.path.join(
-                args.replay_buffer_path, exp_name, "observations.npy"
+                args.replay_buffer_save_folder, exp_name, "observations.npy"
             )
             if not os.path.isfile(obs_path):
                 raise ValueError(
-                    f"Missing observations.npy in {os.path.join(args.replay_buffer_path, exp_name)}"
+                    f"Missing observations.npy in {os.path.join(args.replay_buffer_save_folder, exp_name)}"
                 )
 
     rewards = {}
@@ -93,7 +93,7 @@ if __name__ == "__main__":
         shutil.rmtree(loser_model_path)
 
         if args.clear_loser_replay_buffer and exp_name not in winner_exp_names:
-            rb_exp_path = os.path.join(args.replay_buffer_path, exp_name)
+            rb_exp_path = os.path.join(args.replay_buffer_save_folder, exp_name)
             if args.clear_loser_high_reward_trajectories:
                 shutil.rmtree(rb_exp_path)
             else:
