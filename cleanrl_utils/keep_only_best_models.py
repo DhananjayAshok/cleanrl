@@ -9,7 +9,7 @@ from dataclasses import dataclass
 @dataclass
 class Args:
     model_dir: str
-    """ Path to a directory /path/to/model_dir/<exp_name>/<model_rank>/(model.pt and eval_rewards.txt) """
+    """ Path to a directory /path/to/model_dir/<exp_name>/<model_rank>/(model.pt and eval_reward.txt) """
     best_k: int = 10
     """ Number of best models to keep. The models will be sorted by the average episodic return in the eval_reward.txt file. """
     clear_loser_replay_buffer: bool = False
@@ -36,8 +36,8 @@ if __name__ == "__main__":
             true_model_dir = os.path.join(args.model_dir, exp_name, model_dir)
             if not os.path.exists(true_model_dir + "/model.pt"):
                 raise ValueError(f"Couldn't find model.pt in {true_model_dir}")
-            if not os.path.exists(true_model_dir + "/eval_rewards.txt"):
-                raise ValueError(f"Couldn't find eval_rewards.txt in {true_model_dir}")
+            if not os.path.exists(true_model_dir + "/eval_reward.txt"):
+                raise ValueError(f"Couldn't find eval_reward.txt in {true_model_dir}")
             model_dirs[exp_name].append(model_dir)
             total_models += 1
 
@@ -75,7 +75,7 @@ if __name__ == "__main__":
     for exp_name in tqdm(model_dirs, desc="Reading rewards"):
         for model_dir in model_dirs[exp_name]:
             true_model_dir = os.path.join(args.model_dir, exp_name, model_dir)
-            rewards_path = os.path.join(true_model_dir, "eval_rewards.txt")
+            rewards_path = os.path.join(true_model_dir, "eval_reward.txt")
             with open(rewards_path, "r") as f:
                 values = [float(line.strip()) for line in f if line.strip()]
             rewards[(exp_name, model_dir)] = (
