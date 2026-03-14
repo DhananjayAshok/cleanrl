@@ -102,10 +102,4 @@ def save_all_models(final_model_data, model_data_list, rewards_list, model_save_
 
 
 def depathify(string):
-    return (
-        string.replace("/", "_")
-        .replace("\\", "_")
-        .replace(":", "_")
-        .replace(" ", "_")
-        .replace(".", "_")
-    )
+    return string.replace("/", "_").replace("\\", "_").replace(" ", "_")
