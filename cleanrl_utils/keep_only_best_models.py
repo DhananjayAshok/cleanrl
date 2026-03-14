@@ -32,6 +32,7 @@ if __name__ == "__main__":
     total_models = 0
     model_dirs = {}
     for exp_name in experiment_dirs:
+        model_dirs[exp_name] = []
         for model_dir in os.listdir(os.path.join(args.model_dir, exp_name)):
             true_model_dir = os.path.join(args.model_dir, exp_name, model_dir)
             if not os.path.exists(true_model_dir + "/model.pt"):
