@@ -89,10 +89,11 @@ def parse_pokeworlds_id_string(id_string):
     )
 
 
-def get_gameboy_worlds_environment(id_string, render_mode=None):
+def get_gameboy_worlds_environment(id_string, run_name, render_mode=None):
     game, environment_variant, init_state, controller_variant, max_steps, save_video = (
         parse_pokeworlds_id_string(id_string)
     )
+
     env = get_environment(
         game=game,
         controller_variant=controller_variant,
@@ -101,6 +102,7 @@ def get_gameboy_worlds_environment(id_string, render_mode=None):
         max_steps=max_steps,
         headless=True,
         save_video=save_video,
+        session_name=run_name,
     )
     env = OneOfToDiscreteWrapper(env)
     if render_mode is not None:
@@ -111,7 +113,7 @@ def get_gameboy_worlds_environment(id_string, render_mode=None):
 def get_pokeworlds_n_actions(id_string=None):
     if len(OneOfToDiscreteWrapper.STATIC_MAP) == 0:
         if id_string is not None:
-            _ = get_gameboy_worlds_environment(id_string)
+            _ = get_gameboy_worlds_environment(id_string, run_name=None)
         else:
             raise ValueError(
                 f"STATIC_MAP not initialized yet! Please provide an id_string to initialize the environment and action mapping."
@@ -130,7 +132,9 @@ def gameboy_worlds_make_env(env_id, seed, idx, capture_video, run_name, gamma=0.
 
     def thunk():
         if capture_video and idx == 0:
-            env = get_gameboy_worlds_environment(env_id, render_mode="rgb_array")
+            env = get_gameboy_worlds_environment(
+                env_id, run_name, render_mode="rgb_array"
+            )
             if capture_every is not None:
                 env = gym.wrappers.RecordVideo(
                     env,
@@ -140,7 +144,7 @@ def gameboy_worlds_make_env(env_id, seed, idx, capture_video, run_name, gamma=0.
             else:
                 env = gym.wrappers.RecordVideo(env, f"videos/{run_name}")
         else:
-            env = get_gameboy_worlds_environment(env_id)
+            env = get_gameboy_worlds_environment(env_id, run_name)
         env = gym.wrappers.RecordEpisodeStatistics(env)
         env = gym.wrappers.ResizeObservation(
             env, (144, 160)

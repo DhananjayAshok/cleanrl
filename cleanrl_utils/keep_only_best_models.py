@@ -10,6 +10,8 @@ from dataclasses import dataclass
 class Args:
     model_dir: str
     """ Path to a directory /path/to/model_dir/<exp_name>/<model_rank>/(model.pt and eval_reward.txt) """
+    video_session_dir: str
+    """ Path to a directory /path/to/video_session_dir/<exp_name>/<instance_id>/(video files). Every run name in the model_dir must be in this directory """
     best_k: int = 10
     """ Number of best models to keep. The models will be sorted by the average episodic return in the eval_reward.txt file. """
     clear_loser_replay_buffer: bool = False
@@ -32,6 +34,13 @@ if __name__ == "__main__":
     total_models = 0
     model_dirs = {}
     for exp_name in experiment_dirs:
+        if exp_name not in os.listdir(args.video_session_dir):
+            raise ValueError(
+                f"video_session_dir is missing experiment dir: {exp_name}. Every run name in the model_dir must be in this directory"
+            )
+        # Delete the exp_video directory for all models, only the winning models will regenerate their video directories after the losers are deleted.
+        exp_video_dir = os.path.join(args.video_session_dir, exp_name)
+        shutil.rmtree(exp_video_dir)
         model_dirs[exp_name] = []
         for model_dir in os.listdir(os.path.join(args.model_dir, exp_name)):
             true_model_dir = os.path.join(args.model_dir, exp_name, model_dir)
