@@ -63,11 +63,7 @@ if __name__ == "__main__":
         model_path = hf_hub_download(
             repo_id=args.hf_repository, filename=f"{args.exp_name}.cleanrl_model"
         )
-    run_name = (
-        f"eval/{args.env_id}/{args.exp_name}/" + f"{args.save_name}/"
-        if args.save_name
-        else ""
-    )
+    run_name = f"{args.save_name}/" if args.save_name else f"{args.exp_name}/"
     evaluate(
         model_path,
         make_env,
