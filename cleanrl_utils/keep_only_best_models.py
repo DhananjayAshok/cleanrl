@@ -15,7 +15,7 @@ class Args:
     clear_loser_replay_buffer: bool = False
     """ If True, the replay buffers of the models that are not in the best k will be deleted to save disk space. """
     clear_loser_high_reward_trajectories: bool = False
-    """ If False, clear_loser_replay buffer will leave the high reward trajectories """
+    """ If False, do not clear the high reward trajectories when deleting buffer """
     replay_buffer_path: str = None
     """ Path to a directory /path/to/replay_buffer_path/<exp_name>/(replay buffer info like observations.npy). Must match the run names of model_dir exactly """
     verbose: bool = True
@@ -87,11 +87,12 @@ if __name__ == "__main__":
     best_dirs = set(sorted_dirs[: args.best_k])
     loser_dirs = [d for d in sorted_dirs if d not in best_dirs]
 
+    winner_exp_names = {winner_exp for winner_exp, _ in best_dirs}
     for exp_name, model_dir in tqdm(loser_dirs, desc="Deleting losers"):
         loser_model_path = os.path.join(args.model_dir, exp_name, model_dir)
         shutil.rmtree(loser_model_path)
 
-        if args.clear_loser_replay_buffer:
+        if args.clear_loser_replay_buffer and exp_name not in winner_exp_names:
             rb_exp_path = os.path.join(args.replay_buffer_path, exp_name)
             if args.clear_loser_high_reward_trajectories:
                 shutil.rmtree(rb_exp_path)
