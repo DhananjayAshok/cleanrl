@@ -82,6 +82,10 @@ if __name__ == "__main__":
         if "high_reward_trajectories.pkl" in files:
             with open(os.path.join(root, "high_reward_trajectories.pkl"), "rb") as f:
                 high_reward_trajectories.extend(pickle.load(f))
+    if len(high_reward_trajectories) == 0:
+        raise ValueError(
+            f"No high reward trajectories found in {args.replay_buffer_folder}. Please make sure to run the save_outliers function first to save high reward trajectories."
+        )
 
     # group high reward trajectories by similarity of their final frames
     groups = []
