@@ -120,12 +120,13 @@ def save_outlier_trajectories(
     steps,
     load_path,
     high_reward_indices,
-    max_trajectory_length=10,
+    max_trajectory_length=30,
 ):
     trajectories = []
     for high_reward_index in high_reward_indices:
         traj_observations = [None for i in range(max_trajectory_length + 1)]
         traj_actions = [None for i in range(max_trajectory_length)]
+        traj_high_level_actions = [None for i in range(max_trajectory_length)]
         traj_rewards = [None for i in range(max_trajectory_length)]
         current_index = high_reward_index
         traj_observations[-1] = observations[current_index][
@@ -134,6 +135,11 @@ def save_outlier_trajectories(
         for i in range(max_trajectory_length):
             traj_observations[-2 - i] = observations[current_index - 1][0, -1]
             traj_actions[-1 - i] = actions[current_index - 1]
+            traj_high_level_actions[-1 - i] = (
+                OneOfToDiscreteWrapper.get_high_level_action_static(
+                    actions[current_index - 1].reshape(-1)[0]
+                )
+            )
             traj_rewards[-1 - i] = rewards[current_index - 1]
             if steps[current_index] == 0:
                 break
@@ -143,7 +149,14 @@ def save_outlier_trajectories(
         ]
         traj_actions = [traj_act for traj_act in traj_actions if traj_act is not None]
         traj_rewards = [traj_rew for traj_rew in traj_rewards if traj_rew is not None]
-        trajectories.append((traj_observations, traj_actions, traj_rewards))
+        traj_high_level_actions = [
+            traj_high_act
+            for traj_high_act in traj_high_level_actions
+            if traj_high_act is not None
+        ]
+        trajectories.append(
+            (traj_observations, traj_actions, traj_high_level_actions, traj_rewards)
+        )
     pickle.dump(
         trajectories,
         open(load_path + "high_reward_trajectories.pkl", "wb"),

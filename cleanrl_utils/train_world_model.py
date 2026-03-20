@@ -148,7 +148,8 @@ class WorldModelDataset(Dataset):
             observation_embedder = CNNEmbedder(
                 seed=args.seed, normalized_observations=True
             ).to("cuda")
-            # TODO: Figure out loading later.
+            if args.embedder_load_path is not None:
+                observation_embedder.load(args.embedder_load_path)
         else:
             raise ValueError(
                 f"Invalid observation embedder type: {args.observation_embedder}"
