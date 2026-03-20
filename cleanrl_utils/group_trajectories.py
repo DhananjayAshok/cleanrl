@@ -22,6 +22,8 @@ class Args:
     """the type of observation embedder to use for the curiosity module."""
     embedder_load_path: str | None = None
     """path to load the observation embedder's weights from. Only applicable if the observation embedder supports loading."""
+    skip_embedding: bool = False
+    """if true, will skip the embedding step and directly compare raw observations for similarity. """
     replay_buffer_folder: str | None = None
     """ Will get all high reward trajectories inside this folder and subfolders """
     save_path: str | None = None
@@ -76,6 +78,8 @@ def frames_similar(embedder, frame1, frame2):
 
 if __name__ == "__main__":
     args = tyro.cli(Args)
+    if args.skip_embedding:
+        args.observation_embedder = "empty"
     embedder = get_embedder(args)
     assert (
         args.save_path is not None
