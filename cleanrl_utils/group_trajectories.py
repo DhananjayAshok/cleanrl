@@ -58,7 +58,11 @@ def get_embedder(args):
 
 
 def is_similar_enough(embedding1, embedding2):
-    return ((embedding1 - embedding2) ** 2).sum() < threshold**2
+    # normalize then check cosine similarity
+    embedding1 = embedding1 / (embedding1.norm() + 1e-8)
+    embedding2 = embedding2 / (embedding2.norm() + 1e-8)
+    cosine_similarity = torch.dot(embedding1, embedding2)
+    return cosine_similarity >= 1 - threshold
 
 
 def frames_similar(embedder, frame1, frame2):
