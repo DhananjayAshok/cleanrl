@@ -122,13 +122,14 @@ def get_pokeworlds_n_actions(id_string=None):
 
 
 def gameboy_worlds_make_env(env_id, seed, idx, capture_video, run_name, gamma=0.99):
-    if capture_video == 1:
-        capture_video = True
-    if isinstance(capture_video, int):
-        capture_every = max(1, capture_video)
-        capture_video = True
-    else:
-        capture_every = None
+    # if capture_video == 1:
+    #    capture_video = True
+    # if isinstance(capture_video, int):
+    #    capture_every = max(1, capture_video)
+    #    capture_video = True
+    # else:
+    #    capture_every = None
+    capture_video = False  # disable, we capture video through the environment itself
 
     def thunk():
         if capture_video and idx == 0:
