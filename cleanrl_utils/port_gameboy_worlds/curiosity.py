@@ -18,6 +18,70 @@ def get_passed_frames(infos) -> np.ndarray:
     return frames.squeeze(0).reshape(-1, 144, 160)
 
 
+def chunk_ocr_frame(frame, n_chunks=8):
+    """
+    Returns n_chunk non-overlapping chunks of the input frame, where each chunk is of varying shape based on the region
+    Horizontal chunking
+    """
+    pass
+
+
+class OCRBuffer:
+    """
+    Stores the frames as chunks (no embedding, just raw frames)
+    OCR in the game env state info is returned as a separate frame of fixed size by key
+    e.g. 'dialogue': np array of specific shape
+            'menu': np array of a different shape, but constant for all menu frames
+    will store a separate buffer for each of these and chunk them to facilitate chunk wise comparison
+
+    """
+
+    def __init__(self, n_chunks=8):
+        self.n_chunks = n_chunks
+        # initialize empty buffer
+
+    def get_unseen_elements():
+        """
+        TODO: same as EmbedBuffer. Essentially if the frame is seen before dont return it.
+        """
+        pass
+
+    def iterative_save():
+        "same as embedbuffer, maybe can copy but handle the keyed buffer properly"
+        pass
+
+    def load():
+        """
+        Same as embedbuffer but ensure loads all keyed buffers properly
+        """
+        pass
+
+    def reset():
+        pass
+
+    def add(items: dict[str, np.ndarray]):
+        # i dont think we'll need buffer rationalization here.
+        # chunk the frames and add them t
+        pass
+
+    def get_reward(self, obs, actions, next_obs, infos) -> float:
+        pass
+
+
+class CombinationBuffer:
+    def __init__(
+        self,
+        observation_embedder,
+        ocr_embedder,
+        similarity_metric="cosine",
+        load_path=None,
+        save_path=None,
+    ):
+        self.observation_buffer = EmbedBuffer(
+            observation_embedder, similarity_metric, load_path, save_path
+        )
+
+
 class EmbedBuffer:
     def __init__(
         self,

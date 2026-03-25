@@ -28,6 +28,8 @@ class Args:
     """ Will get all high reward trajectories inside this folder and subfolders """
     save_path: str | None = None
     """path to save the grouped high reward trajectories to."""
+    seed: int = 0
+    """ """
 
 
 class EmptyEmbedder:
@@ -80,6 +82,8 @@ if __name__ == "__main__":
     args = tyro.cli(Args)
     if args.skip_embedding:
         args.observation_embedder = "empty"
+    torch.manual_seed(args.seed)
+    np.random.seed(args.seed)
     embedder = get_embedder(args)
     assert (
         args.save_path is not None
