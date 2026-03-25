@@ -152,7 +152,7 @@ class CNNEmbedder(nn.Module):
             return embeddings  # + noise
 
     def load(self, path):
-        loaded_state = torch.load(path)
+        loaded_state = torch.load(path + "observation_encoder.pt")
         self.load_state_dict(loaded_state)
         print(f"Loaded CNN embedder from {path}")
 
