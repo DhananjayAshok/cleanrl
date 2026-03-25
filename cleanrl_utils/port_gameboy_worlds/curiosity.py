@@ -368,7 +368,7 @@ class WorldModel(nn.Module):
             next_obs = next_obs[
                 0, -1
             ]  # get the last frame of the frame stack. THIS COMMITS TO ONLY ONE ENV
-            next_obs_embed = self.embedder.embed(next_obs)
+            next_obs_embed = self.embedder.embed(next_obs)[0]
             predicted_next_obs_embed = self.predict(raw_obs=obs, action=actions)
             # reward is the error in the embedding space
             if self.normalized_observations:
