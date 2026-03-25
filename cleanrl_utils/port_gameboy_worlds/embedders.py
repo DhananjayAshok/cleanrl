@@ -86,6 +86,8 @@ class PatchProjection(nn.Module):
                 batch_tensor = torch.tensor(
                     items.reshape(-1, 1, 144, 160),
                 )
+            else:
+                batch_tensor = items.reshape(-1, 1, 144, 160)
             batch_tensor = batch_tensor.to(self.dtype).to(
                 next(self.parameters()).device
             )
