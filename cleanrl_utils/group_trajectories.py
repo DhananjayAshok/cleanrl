@@ -65,7 +65,7 @@ def is_similar_enough(embedding1, embedding2):
     # normalize then check cosine similarity
     embedding1 = embedding1 / (embedding1.norm() + 1e-8)
     embedding2 = embedding2 / (embedding2.norm() + 1e-8)
-    cosine_similarity = torch.dot(embedding1, embedding2)
+    cosine_similarity = torch.dot(embedding1[0], embedding2[0])
     return cosine_similarity >= 1 - threshold
 
 
@@ -102,8 +102,16 @@ if __name__ == "__main__":
     # group high reward trajectories by similarity of their final frames
     groups = []
     # each group is a dict {indexes: list of trajectory indices in self.high_reward_trajectories, final_frames: list of final frames for those trajectories}
-    for i, (traj_observations, traj_actions, traj_rewards) in tqdm(
-        enumerate(high_reward_trajectories), desc="Grouping high reward trajectories"
+    # breakpoint()
+    for i, (
+        traj_observations,
+        traj_actions,
+        traj_high_level_actions,
+        traj_rewards,
+    ) in tqdm(
+        enumerate(high_reward_trajectories),
+        desc="Grouping high reward trajectories",
+        total=len(high_reward_trajectories),
     ):
         final_frame = traj_observations[-1]
         found_group = False
@@ -132,10 +140,12 @@ if __name__ == "__main__":
         group_indexes = group["indexes"]
         all_trajectories = []
         for index in group_indexes:
-            traj_observations, traj_actions, traj_rewards = high_reward_trajectories[
-                index
-            ]
-            all_trajectories.append((traj_observations, traj_actions, traj_rewards))
+            traj_observations, traj_actions, traj_high_level_actions, traj_rewards = (
+                high_reward_trajectories[index]
+            )
+            all_trajectories.append(
+                (traj_observations, traj_actions, traj_high_level_actions, traj_rewards)
+            )
         final_groups.append(all_trajectories)
     os.makedirs(args.save_path, exist_ok=True)
     with open(
