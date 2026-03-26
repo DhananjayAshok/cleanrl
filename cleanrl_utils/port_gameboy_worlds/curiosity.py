@@ -196,6 +196,10 @@ class CombinationBuffer:
         # simple combination strategy: weighted average of the two rewards
         return self.ocr_alpha * ocr_reward + (1 - self.ocr_alpha) * obs_reward
 
+    def reset(self):
+        self.observation_buffer.reset()
+        self.ocr_buffer.reset()
+
 
 class EmbedBuffer:
     def __init__(
