@@ -26,10 +26,11 @@ def chunk_ocr_frame(frame, n_chunks=8):
     returns: list of n_chunks arrays each of shape (height, width//n_chunks)
     """
     _, width = frame.shape
+    chunk_width = width // n_chunks
     chunks = []
     for i in range(n_chunks):
-        start = i * width // n_chunks
-        end = (i + 1) * width // n_chunks
+        start = i * chunk_width
+        end = (i + 1) * chunk_width
         chunks.append(frame[:, start:end])
     return chunks
 
