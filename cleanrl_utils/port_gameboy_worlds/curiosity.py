@@ -21,9 +21,17 @@ def get_passed_frames(infos) -> np.ndarray:
 def chunk_ocr_frame(frame, n_chunks=8):
     """
     Returns n_chunk non-overlapping chunks of the input frame, where each chunk is of varying shape based on the region
-    Horizontal chunking
+    Horizontal chunking: splits frame into n_chunks equal-width vertical strips along the width axis
+    frame: np.ndarray of shape (height, width)
+    returns: list of n_chunks arrays each of shape (height, width//n_chunks)
     """
-    pass
+    _, width = frame.shape
+    chunks = []
+    for i in range(n_chunks):
+        start = i * width // n_chunks
+        end = (i + 1) * width // n_chunks
+        chunks.append(frame[:, start:end])
+    return chunks
 
 
 class OCRBuffer:
@@ -33,46 +41,144 @@ class OCRBuffer:
     e.g. 'dialogue': np array of specific shape
             'menu': np array of a different shape, but constant for all menu frames
     will store a separate buffer for each of these and chunk them to facilitate chunk wise comparison
-
+    A new buffer is created automatically when a region key is seen for the first time.
     """
 
-    def __init__(self, n_chunks=8):
+    def __init__(self, n_chunks=8, save_path=None, load_path=None):
         self.n_chunks = n_chunks
-        # initialize empty buffer
+        self.save_path = save_path
+        self.load_path = load_path
+        self.buffers = (
+            {}
+        )  # dict[str, torch.Tensor]  region_key -> (buffer_size, chunk_size)
+        self.reset()
 
-    def get_unseen_elements():
+    def _frames_to_chunks(self, frames: np.ndarray) -> torch.Tensor:
+        """Convert frames (n_frames, height, width) to flat chunk tensor (n_frames*n_chunks, chunk_size)."""
+        all_chunks = []
+        for frame in frames:
+            for chunk in chunk_ocr_frame(frame, self.n_chunks):
+                all_chunks.append(chunk.flatten().astype(np.float32) / 255.0)
+        return torch.tensor(np.stack(all_chunks), dtype=torch.float32)
+
+    def get_unseen_elements(self, chunks: torch.Tensor, buffer: torch.Tensor):
         """
-        TODO: same as EmbedBuffer. Essentially if the frame is seen before dont return it.
+        Same logic as EmbedBuffer: return only chunks not already in the buffer.
+        chunks: (n, chunk_size), buffer: (buffer_size, chunk_size)
+        Returns unseen chunks tensor or None if all are duplicates.
         """
-        pass
+        if buffer is None:
+            return chunks
+        diffs = chunks.unsqueeze(1) - buffer.unsqueeze(
+            0
+        )  # (n, buffer_size, chunk_size)
+        new_chunks = []
+        for i in range(chunks.shape[0]):
+            max_dim_diff = diffs[i].abs().max(-1).values  # (buffer_size,)
+            if max_dim_diff.min().item() >= 0.001:
+                new_chunks.append(chunks[i])
+        if len(new_chunks) == 0:
+            return None
+        return torch.stack(new_chunks)
 
-    def iterative_save():
-        "same as embedbuffer, maybe can copy but handle the keyed buffer properly"
-        pass
+    def iterative_save(self):
+        if self.save_path is None:
+            return
+        os.makedirs(self.save_path, exist_ok=True)
+        for key, buffer in self.buffers.items():
+            if not buffer:
+                continue
+            file_path = os.path.join(self.save_path, f"ocr_buffer_{key}.pt")
+            save_size = buffer.shape[0]
+            if os.path.exists(file_path):
+                existing_buffer = torch.load(file_path)
+                existing_unseen = self.get_unseen_elements(existing_buffer, buffer)
+                if existing_unseen is not None:
+                    merged_buffer = torch.cat([existing_unseen, buffer], dim=0)
+                else:
+                    merged_buffer = buffer
+                save_size = merged_buffer.shape[0]
+                torch.save(merged_buffer.cpu(), file_path)
+            else:
+                torch.save(buffer.cpu(), file_path)
+            print(
+                f"Saved OCR buffer for '{key}' with {save_size} entries to {file_path}"
+            )
 
-    def load():
-        """
-        Same as embedbuffer but ensure loads all keyed buffers properly
-        """
-        pass
+    def load(self):
+        if self.load_path is None:
+            return
+        if not os.path.exists(self.load_path):
+            raise ValueError(f"No OCR buffer directory found at {self.load_path}")
+        for filename in os.listdir(self.load_path):
+            if filename.startswith("ocr_buffer_") and filename.endswith(".pt"):
+                key = filename[len("ocr_buffer_") : -len(".pt")]
+                self.buffers[key] = torch.load(os.path.join(self.load_path, filename))
 
-    def reset():
-        pass
+    def reset(self):
+        self.buffers = {}
+        self.load()
 
-    def add(items: dict[str, np.ndarray]):
-        # i dont think we'll need buffer rationalization here.
-        # chunk the frames and add them t
-        pass
+    def add(self, items: dict[str, np.ndarray]):
+        for key, frames in items.items():
+            chunks = self._frames_to_chunks(frames)
+            if key not in self.buffers:
+                self.buffers[key] = chunks
+            else:
+                new_chunks = self.get_unseen_elements(chunks, self.buffers[key])
+                if new_chunks is not None:
+                    self.buffers[key] = torch.cat(
+                        [self.buffers[key], new_chunks], dim=0
+                    )
 
     def get_reward(self, obs, actions, next_obs, infos) -> float:
-        pass
+        if "ocr_regions" not in infos["ocr"]:
+            return 0.0  # no ocr screens up
+        regions = [
+            key for key in infos["ocr"]["ocr_regions"].keys() if not key.startswith("_")
+        ]
+
+        region_scores = []
+        items_to_add = {}
+
+        for region in regions:
+            ocr_frames = infos["ocr"]["ocr_regions"][region][0]
+            ocr_frames = ocr_frames.reshape(
+                ocr_frames.shape[0], ocr_frames.shape[1], ocr_frames.shape[2]
+            )  # n_frames, height, width
+
+            chunks = self._frames_to_chunks(ocr_frames)
+            buffer = self.buffers.get(region, None)
+
+            if buffer is None:
+                score = 1.0  # first time seeing this region — fully novel
+            else:
+                diffs = chunks.unsqueeze(1) - buffer.unsqueeze(
+                    0
+                )  # (n, buffer_size, chunk_size)
+                unseen_count = sum(
+                    1
+                    for i in range(chunks.shape[0])
+                    if diffs[i].abs().max(-1).values.min().item() >= 0.001
+                )
+                score = unseen_count / chunks.shape[0]
+
+            region_scores.append(score)
+            items_to_add[region] = ocr_frames
+
+        self.add(items_to_add)
+
+        if len(region_scores) == 0:
+            return 0.0
+        return max(region_scores)
 
 
 class CombinationBuffer:
     def __init__(
         self,
         observation_embedder,
-        ocr_embedder,
+        n_chunks=8,
+        ocr_alpha=0.5,
         similarity_metric="cosine",
         load_path=None,
         save_path=None,
@@ -80,6 +186,14 @@ class CombinationBuffer:
         self.observation_buffer = EmbedBuffer(
             observation_embedder, similarity_metric, load_path, save_path
         )
+        self.ocr_buffer = OCRBuffer(n_chunks)
+        self.ocr_alpha = ocr_alpha
+
+    def get_reward(self, obs, actions, next_obs, infos) -> float:
+        obs_reward = self.observation_buffer.get_reward(obs, actions, next_obs, infos)
+        ocr_reward = self.ocr_buffer.get_reward(obs, actions, next_obs, infos)
+        # simple combination strategy: weighted average of the two rewards
+        return self.ocr_alpha * ocr_reward + (1 - self.ocr_alpha) * obs_reward
 
 
 class EmbedBuffer:
@@ -420,6 +534,13 @@ def get_curiosity_module(args):
         elif args.curiosity_module == "clusterbuffer":
             module = ClusterOnlyBuffer(
                 embedder=embedder,
+                save_path=args.buffer_save_path,
+                load_path=args.buffer_load_path,
+            )
+        elif args.curiosity_module == "combinationbuffer":
+            module = CombinationBuffer(
+                observation_embedder=embedder,
+                similarity_metric=args.similarity_metric,
                 save_path=args.buffer_save_path,
                 load_path=args.buffer_load_path,
             )
