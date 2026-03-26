@@ -544,6 +544,10 @@ def get_curiosity_module(args):
                 save_path=args.buffer_save_path,
                 load_path=args.buffer_load_path,
             )
+        else:
+            raise ValueError(f"Invalid curiosity module type: {args.curiosity_module}")
     elif args.curiosity_module == "world_model":
         module = WorldModel(embedder=embedder)
+    else:
+        raise ValueError(f"Invalid curiosity module type: {args.curiosity_module}")
     return module
