@@ -200,6 +200,10 @@ class CombinationBuffer:
         self.observation_buffer.reset()
         self.ocr_buffer.reset()
 
+    def iterative_save(self):
+        self.observation_buffer.iterative_save()
+        self.ocr_buffer.iterative_save()
+
 
 class EmbedBuffer:
     def __init__(
