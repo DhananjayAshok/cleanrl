@@ -174,7 +174,7 @@ def save_outliers(
     save_folder,
     n_pos_loops,
     frac_samples=0.05,
-    outlier_threshold=2.5,
+    outlier_threshold=3.5,
 ):
     print("Analyzing rewards for outliers and visualization...")
     load_path = f"{save_folder}/"
