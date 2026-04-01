@@ -174,7 +174,7 @@ def save_outliers(
     save_folder,
     n_pos_loops,
     frac_samples=0.05,
-    outlier_threshold=3.5,
+    outlier_threshold=2.5,
 ):
     print("Analyzing rewards for outliers and visualization...")
     load_path = f"{save_folder}/"
@@ -204,6 +204,10 @@ def save_outliers(
         print(
             f"Saved {len(high_reward_indices)} reward indices to {load_path + 'high_reward_indices.npy'}"
         )
+        zs = np.zeros(shape=(len(high_reward_indices),))
+        for i in range(len(high_reward_indices)):
+            zs[i] = normalized_rewards[high_reward_indices[i]]
+        np.save(load_path + "high_reward_z_values.npy", zs)
         save_outlier_trajectories(
             observations,
             actions,

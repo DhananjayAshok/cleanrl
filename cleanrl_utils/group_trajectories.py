@@ -30,6 +30,8 @@ class Args:
     """path to save the grouped high reward trajectories to."""
     seed: int = 0
     """ """
+    z_min: float = 3.5
+    """ the minimum z value for a trajectory to be considered an outlier and saved. """
 
 
 class EmptyEmbedder:
@@ -93,7 +95,21 @@ if __name__ == "__main__":
     for root, dirs, files in os.walk(args.replay_buffer_folder):
         if "high_reward_trajectories.pkl" in files:
             with open(os.path.join(root, "high_reward_trajectories.pkl"), "rb") as f:
-                high_reward_trajectories.extend(pickle.load(f))
+                high_reward_trajes = pickle.load(f)
+            z_values = np.load(os.path.join(root, "high_reward_z_values.npy"))
+            selected_trajectories = []
+            if args.z_min is None:
+                selected_trajectories = high_reward_trajes
+            else:
+                for i in range(len(z_values)):
+                    if z_values[i] >= args.z_min:
+                        selected_trajectories.append(high_reward_trajes[i])
+            if len(selected_trajectories) == 0:
+                print(
+                    f"Found no high reward trajectories in {root} with z values above {args.z_min}."
+                )
+            else:
+                high_reward_trajectories.extend(selected_trajectories)
     if len(high_reward_trajectories) == 0:
         raise ValueError(
             f"No high reward trajectories found in {args.replay_buffer_folder}. Please make sure to run the save_outliers function first to save high reward trajectories."
