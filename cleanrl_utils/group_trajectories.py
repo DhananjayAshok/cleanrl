@@ -30,7 +30,7 @@ class Args:
     """path to save the grouped high reward trajectories to."""
     seed: int = 0
     """ """
-    z_min: float = 3.5
+    z_min: float = 4.0
     """ the minimum z value for a trajectory to be considered an outlier and saved. """
 
 
