@@ -59,7 +59,7 @@ class OCRBuffer:
         all_chunks = []
         for frame in frames:
             for chunk in chunk_ocr_frame(frame, self.n_chunks):
-                all_chunks.append(chunk.flatten().astype(np.float32) / 255.0)
+                all_chunks.append(chunk.astype(np.float32) / 255.0)
         return torch.tensor(np.stack(all_chunks), dtype=torch.float32)
 
     def get_unseen_elements(self, chunks: torch.Tensor, buffer: torch.Tensor):
@@ -75,7 +75,9 @@ class OCRBuffer:
         )  # (n, buffer_size, chunk_size)
         new_chunks = []
         for i in range(chunks.shape[0]):
-            max_dim_diff = diffs[i].abs().max(-1).values  # (buffer_size,)
+            max_dim_diff = (
+                diffs[i].reshape(len(buffer), -1).abs().max(-1).values
+            )  # (buffer_size,)
             if max_dim_diff.min().item() >= 0.001:
                 new_chunks.append(chunks[i])
         if len(new_chunks) == 0:
@@ -120,17 +122,14 @@ class OCRBuffer:
         self.buffers = {}
         self.load()
 
-    def add(self, items: dict[str, np.ndarray]):
-        for key, frames in items.items():
-            chunks = self._frames_to_chunks(frames)
+    def add(self, items: dict[str, torch.Tensor]):
+        for key, chunks in items.items():
             if key not in self.buffers:
                 self.buffers[key] = chunks
+            elif self.buffers[key] is None:
+                self.buffers[key] = chunks
             else:
-                new_chunks = self.get_unseen_elements(chunks, self.buffers[key])
-                if new_chunks is not None:
-                    self.buffers[key] = torch.cat(
-                        [self.buffers[key], new_chunks], dim=0
-                    )
+                self.buffers[key] = torch.cat([self.buffers[key], chunks], dim=0)
 
     def get_reward(self, obs, actions, next_obs, infos) -> float:
         if "ocr_regions" not in infos["ocr"]:
@@ -147,25 +146,22 @@ class OCRBuffer:
             ocr_frames = ocr_frames.reshape(
                 ocr_frames.shape[0], ocr_frames.shape[1], ocr_frames.shape[2]
             )  # n_frames, height, width
-
             chunks = self._frames_to_chunks(ocr_frames)
             buffer = self.buffers.get(region, None)
 
             if buffer is None:
                 score = 1.0  # first time seeing this region — fully novel
+                items_to_add[region] = chunks
             else:
-                diffs = chunks.unsqueeze(1) - buffer.unsqueeze(
-                    0
-                )  # (n, buffer_size, chunk_size)
-                unseen_count = sum(
-                    1
-                    for i in range(chunks.shape[0])
-                    if diffs[i].abs().max(-1).values.min().item() >= 0.001
-                )
-                score = unseen_count / chunks.shape[0]
-
+                # if chunk is already in buffer, score 0
+                original_chunk_count = chunks.shape[0]
+                chunks = self.get_unseen_elements(chunks, buffer)
+                if chunks is None:
+                    score = 0.0
+                else:
+                    score = chunks.shape[0] / original_chunk_count
+                    items_to_add[region] = chunks
             region_scores.append(score)
-            items_to_add[region] = ocr_frames
 
         self.add(items_to_add)
 
