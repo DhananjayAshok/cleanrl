@@ -206,7 +206,7 @@ def save_outliers(
         )
         zs = np.zeros(shape=(len(high_reward_indices),))
         for i in range(len(high_reward_indices)):
-            zs[i] = normalized_rewards[high_reward_indices[i]]
+            zs[i] = normalized_rewards[high_reward_indices[i]].item()
         np.save(load_path + "high_reward_z_values.npy", zs)
         save_outlier_trajectories(
             observations,
