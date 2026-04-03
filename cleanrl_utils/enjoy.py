@@ -30,6 +30,8 @@ def parse_args():
         help="the number of evaluation episodes")
     parser.add_argument("--curiosity_module", type=str, default="embedbuffer",
                     help="the type of curiosity module to use.")
+    parser.add_argument("--ocr_alpha", type=float, default=0.0,
+                        help="the alpha value to use when combining the observation embedding buffer reward and the OCR buffer reward. Only applicable if using the combined curiosity module.")
     parser.add_argument("--observation_embedder", type=str, default="random_patch",
                     help="the type of observation embedder to use for the curiosity module.")
     parser.add_argument("--embedder_load_path", type=str, default=None,
