@@ -89,7 +89,9 @@ class OCRBuffer:
             return
         os.makedirs(self.save_path, exist_ok=True)
         for key, buffer in self.buffers.items():
-            if not buffer:
+            if buffer is None:
+                continue
+            if len(buffer) == 0:
                 continue
             file_path = os.path.join(self.save_path, f"ocr_buffer_{key}.pt")
             save_size = buffer.shape[0]

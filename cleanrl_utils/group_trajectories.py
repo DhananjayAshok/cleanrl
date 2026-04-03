@@ -11,7 +11,7 @@ from dataclasses import dataclass
 import tyro
 
 threshold = (
-    0.01  # threshold for considering two frames as similar in the embedding space
+    0.05  # threshold for considering two frames as similar in the embedding space
 )
 
 
@@ -30,7 +30,7 @@ class Args:
     """path to save the grouped high reward trajectories to."""
     seed: int = 0
     """ """
-    z_min: float = 4.0
+    z_min: float = 3.0
     """ the minimum z value for a trajectory to be considered an outlier and saved. """
 
 
