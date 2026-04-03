@@ -92,6 +92,8 @@ class Args:
     # Curiosity module specific arguments
     curiosity_module: str = "embedbuffer"
     """the type of curiosity module to use."""
+    ocr_alpha: float = 0.5
+    """the weight of the OCR buffer's reward in the final curiosity reward for the CombinationBuffer curiosity module."""
     observation_embedder: str = "random_patch"
     """the type of observation embedder to use for the curiosity module."""
     embedder_load_path: str | None = None

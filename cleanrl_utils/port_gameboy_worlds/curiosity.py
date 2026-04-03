@@ -180,25 +180,44 @@ class CombinationBuffer:
         load_path=None,
         save_path=None,
     ):
+        if ocr_alpha < 0.0 or ocr_alpha > 1.0:
+            raise ValueError(f"ocr_alpha must be between 0 and 1. Got {ocr_alpha}")
         self.observation_buffer = EmbedBuffer(
-            observation_embedder, similarity_metric, load_path, save_path
+            observation_embedder,
+            similarity_metric,
+            load_path=load_path,
+            save_path=save_path,
         )
-        self.ocr_buffer = OCRBuffer(n_chunks)
+        self.ocr_buffer = OCRBuffer(n_chunks, save_path=save_path, load_path=load_path)
         self.ocr_alpha = ocr_alpha
 
     def get_reward(self, obs, actions, next_obs, infos) -> float:
+        if self.ocr_alpha == 0.0:
+            return self.observation_buffer.get_reward(obs, actions, next_obs, infos)
+        if self.ocr_alpha == 1.0:
+            return self.ocr_buffer.get_reward(obs, actions, next_obs, infos)
         obs_reward = self.observation_buffer.get_reward(obs, actions, next_obs, infos)
         ocr_reward = self.ocr_buffer.get_reward(obs, actions, next_obs, infos)
         # simple combination strategy: weighted average of the two rewards
         return self.ocr_alpha * ocr_reward + (1 - self.ocr_alpha) * obs_reward
 
     def reset(self):
-        self.observation_buffer.reset()
-        self.ocr_buffer.reset()
+        if self.ocr_alpha != 1.0:
+            self.observation_buffer.reset()
+        if self.ocr_alpha != 0.0:
+            self.ocr_buffer.reset()
 
     def iterative_save(self):
-        self.observation_buffer.iterative_save()
-        self.ocr_buffer.iterative_save()
+        if self.ocr_alpha != 1.0:
+            self.observation_buffer.iterative_save()
+        if self.ocr_alpha != 0.0:
+            self.ocr_buffer.iterative_save()
+
+    def load(self):
+        if self.ocr_alpha != 1.0:
+            self.observation_buffer.load()
+        if self.ocr_alpha != 0.0:
+            self.ocr_buffer.load()
 
 
 class EmbedBuffer:
@@ -545,6 +564,7 @@ def get_curiosity_module(args):
         elif args.curiosity_module == "combinationbuffer":
             module = CombinationBuffer(
                 observation_embedder=embedder,
+                ocr_alpha=args.ocr_alpha,
                 similarity_metric=args.similarity_metric,
                 save_path=args.buffer_save_path,
                 load_path=args.buffer_load_path,
