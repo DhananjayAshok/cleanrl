@@ -475,16 +475,22 @@ class WorldModel(nn.Module):
             action_dim = get_pokeworlds_n_actions()  # attempt to get from static map
         self.action_dim = action_dim
         hidden_dim = self.hidden_dim
+        self.action_embedder = nn.Embedding(action_dim, hidden_dim)
+        self.observation_encoder = nn.Linear(observation_dim, hidden_dim)
         self.model = nn.Sequential(
-            nn.Linear(observation_dim + action_dim, hidden_dim),
+            nn.Linear(2 * hidden_dim, hidden_dim),
             nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(),
+            nn.BatchNorm1d(hidden_dim),
             nn.Linear(hidden_dim, self.embedder.output_dim),
         )
 
     def forward(self, x):
         """x should be concatenated embedding and action tensor of shape (batch_size, observation_dim + 1)"""
+        observations = x[:, : self.embedder.output_dim * FRAME_STACK]
+        actions = x[:, self.embedder.output_dim * FRAME_STACK :].long().squeeze(-1)
+        obs_embed = self.observation_encoder(observations)
+        action_embed = self.action_embedder(actions)
+        x = torch.cat([obs_embed, action_embed], dim=-1)
         next_obs_pred = self.model(x)
         if self.normalized_observations:
             next_obs_pred = nn.functional.normalize(next_obs_pred, dim=-1)
