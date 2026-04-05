@@ -82,7 +82,6 @@ class PatchProjection(nn.Module):
         super().__init__()
         self.normalized_observations = normalized_observations
         self.seed = seed
-        self.make_network()
         self.kernel_size = kernel_size
         self.patch_dim = patch_dim
         self.patch_dim = 4
@@ -90,6 +89,7 @@ class PatchProjection(nn.Module):
         n_w = 160 // self.kernel_size
         n_patches = n_h * n_w
         self.output_dim = n_patches * self.patch_dim
+        self.make_network()
         self.dtype = self.project[0].weight.dtype
 
     def make_network(self):
