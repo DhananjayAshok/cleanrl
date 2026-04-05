@@ -480,14 +480,14 @@ class WorldModel(nn.Module):
         self.model = nn.Sequential(
             nn.Linear(2 * hidden_dim, hidden_dim),
             nn.ReLU(),
-            nn.BatchNorm1d(hidden_dim),
+            nn.LayerNorm(hidden_dim),
             nn.Linear(hidden_dim, self.embedder.output_dim),
         )
 
     def forward(self, x):
         """x should be concatenated embedding and action tensor of shape (batch_size, observation_dim + 1)"""
         observations = x[:, : self.embedder.output_dim * FRAME_STACK]
-        actions = x[:, self.embedder.output_dim * FRAME_STACK :].long().squeeze(-1)
+        actions = x[:, -1].long()
         obs_embed = self.observation_encoder(observations)
         action_embed = self.action_embedder(actions)
         x = torch.cat([obs_embed, action_embed], dim=-1)
@@ -501,12 +501,10 @@ class WorldModel(nn.Module):
             self.create_model()
         with torch.no_grad():
             obs = self.embedder.embed(raw_obs).reshape(-1)  # flatten the frame stack
-            action_vector = torch.zeros(
-                self.action_dim, dtype=obs.dtype, device=obs.device
-            )
-            action_vector[action] = 1.0  # one-hot encode the action
-            x = torch.cat([obs, action_vector], dim=-1)
-            output = self.forward(x)
+            x = torch.cat([obs, action.to(obs.device)], dim=-1).unsqueeze(
+                0
+            )  # add batch dimension
+            output = self.forward(x).squeeze(0)  # remove batch dimension
         return output
 
     def get_reward(self, obs, actions, next_obs, infos) -> float:

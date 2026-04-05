@@ -185,11 +185,12 @@ class WorldModelDataset(Dataset):
                 else:
                     next_obs = observations[0][0, -1]
                 obs_tensor = embedder.embed(obs).reshape(-1).to("cpu")
-                action_tensor = torch.zeros(action_dim, dtype=torch.float16)
-                action_tensor[action] = 1.0  # one-hot encode the action
-                next_obs_tensor = embedder.embed(next_obs).to("cpu").reshape(-1)
+                action_tensor = (
+                    torch.Tensor([action]).to(obs_tensor.device).to(obs_tensor.dtype)
+                )
                 X_vec = torch.cat([obs_tensor, action_tensor])
                 X.append(X_vec)
+                next_obs_tensor = embedder.embed(next_obs).to("cpu").reshape(-1)
                 y.append(next_obs_tensor)
             X = torch.stack(X).cpu()
             y = torch.stack(y).cpu()
@@ -263,9 +264,6 @@ if __name__ == "__main__":
         embedder=dataset.get_embedder(args),
         env_id=args.env_id,
     ).to(device)
-    del (
-        world_model.embedder
-    )  # don't need this, have precomputed embeddings in the dataset
     optimizer = optim.Adam(
         world_model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay
     )
@@ -295,6 +293,7 @@ if __name__ == "__main__":
         for X_batch, y_batch in tqdm(
             train_dataloader, desc=f"Epoch {epoch} - Training", leave=False
         ):
+            world_model.train()
             optimizer.zero_grad()
             pred_next_obs = world_model(X_batch)
             loss = F.mse_loss(pred_next_obs, y_batch)
@@ -305,6 +304,7 @@ if __name__ == "__main__":
         writer.add_scalar("train/loss_std", np.std(train_losses), epoch)
         val_losses = []
         with torch.no_grad():
+            world_model.eval()
             for X_batch, y_batch in tqdm(
                 val_dataloader, desc=f"Epoch {epoch} - Validation", leave=False
             ):
