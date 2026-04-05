@@ -2,7 +2,7 @@ import os
 import numpy as np
 import torch
 from time import perf_counter_ns
-
+from gameboy_worlds.utils import show_frames
 
 FRAME_STACK = 2
 
@@ -103,3 +103,43 @@ def save_all_models(final_model_data, model_data_list, rewards_list, model_save_
 
 def depathify(string):
     return string.replace("/", "_").replace("\\", "_").replace(" ", "_")
+
+
+def correct_torch_frame(frame: torch.Tensor):
+    if frame.ndim == 2:  # then (H, W), add channel dimension
+        frame = frame.unsqueeze(0)
+    elif (
+        frame.ndim == 3 and frame.shape[0] == 1
+    ):  # then (C, H, W) but C is 1,reshape to (H, W, 1)
+        frame = frame.permute(1, 2, 0)
+    elif (
+        frame.ndim == 3 and frame.shape[2] == 1
+    ):  # then (H, W, C) but C is 1, do nothing
+        pass
+    return frame
+
+
+def show_torch_frames(frames: torch.Tensor, titles=None, save=False):
+    if isinstance(frames, list):
+        frames = [frame for frame in frames]
+    elif isinstance(frames, torch.Tensor):
+        if frames.ndim == 4:  # (N, C, H, W) or (N, H, W, C)
+            frames = [correct_torch_frame(frame) for frame in frames]
+        elif frames.ndim == 3:  # (C, H, W), (H, W, C) or (N, H, W)
+            # must detect which one it is
+            if frames.shape[0] == 1 or frames.shape[0] == 3:  # (C, H, W)
+                frames = [correct_torch_frame(frames)]
+            else:
+                frames = [correct_torch_frame(frame) for frame in frames]
+        elif frames.ndim == 2:  # (H, W)
+            frames = [correct_torch_frame(frames)]
+        else:
+            raise ValueError(
+                f"Unsupported frame shape {frames.shape}, expected (N, C, H, W), (N, H, W, C), (C, H, W), (H, W, C) or (H, W)"
+            )
+    else:
+        raise ValueError(
+            f"Unsupported frames type {type(frames)}, expected list of torch.Tensor or torch.Tensor"
+        )
+    frames = [frame.detach().cpu().numpy() for frame in frames]
+    return show_frames(frames, titles=titles, save=save)
