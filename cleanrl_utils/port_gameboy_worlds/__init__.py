@@ -17,7 +17,6 @@ from .env_factory import (
 from .embedders import (
     layer_init,
     get_gameboy_cnn_chain,
-    invert_gameboy_cnn_chain,
     PatchProjection,
     CNNEmbedder,
 )

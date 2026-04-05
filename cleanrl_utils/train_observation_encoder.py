@@ -56,6 +56,8 @@ class Args:
     """ number of epochs with no improvement on the validation loss before stopping training early """
     force_overwrite: bool = True
     """ Skip training if model already exists if this is False """
+    validation_visualizations: int = 5
+    """ number of visualizations to generate for the validation set per epoch. Must be less than or equal to the batch size. """
 
 
 class ObservationDataset(Dataset):
@@ -124,7 +126,7 @@ class ObservationDataset(Dataset):
             ),
             mmap=True,
         )
-        return X[sample_idx].to("cuda")
+        return (idx, X[sample_idx].to("cuda"))
 
     def __len__(self):
         return self.total_length
@@ -165,6 +167,11 @@ if __name__ == "__main__":
     torch.manual_seed(args.seed)
     torch.backends.cudnn.deterministic = args.torch_deterministic
     assert torch.cuda.is_available(), "cuda flag is True but no cuda available"
+    if args.validation_visualizations > args.batch_size:
+        args.validation_visualizations = args.batch_size
+        print(
+            f"validation_visualizations cannot be greater than batch_size. Setting validation_visualizations to {args.batch_size}"
+        )
     device = torch.device("cuda")
     dataset = ObservationDataset(args)
     # split into train and val
@@ -179,6 +186,9 @@ if __name__ == "__main__":
         train_dataset, batch_size=args.batch_size, shuffle=True
     )
     val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
+    viz_idxes = np.random.choice(
+        range(args.batch_size), size=args.validation_visualizations, replace=False
+    )
     observation_embedder = CNNEmbedder(seed=args.seed).to(device).train()
     optimizer = optim.Adam(
         observation_embedder.parameters(),
@@ -208,14 +218,13 @@ if __name__ == "__main__":
     best_val_loss = float("inf")
     for epoch in tqdm(range(args.num_epochs), desc="Training observation encoder"):
         train_losses = []
-        for X_batch in tqdm(
+        for idx, X_batch in tqdm(
             train_dataloader, desc=f"Epoch {epoch} - Training", leave=False
         ):
+            observation_embedder.train()
             X_batch = X_batch.to(next(observation_embedder.parameters()).dtype)
             optimizer.zero_grad()
-            pred_next_obs = observation_embedder(X_batch)
-            with torch.no_grad():
-                y = observation_embedder.norm1(X_batch)
+            pred_next_obs, y = observation_embedder(X_batch)
             loss = F.mse_loss(pred_next_obs, y)
             loss.backward()
             optimizer.step()
@@ -224,14 +233,50 @@ if __name__ == "__main__":
         writer.add_scalar("train/loss_std", np.std(train_losses), epoch)
         val_losses = []
         with torch.no_grad():
-            for X_batch in tqdm(
-                val_dataloader, desc=f"Epoch {epoch} - Validation", leave=False
+            observation_embedder.eval()
+            for val_i, X_batch_info in tqdm(
+                enumerate(val_dataloader),
+                total=len(val_dataloader),
+                desc=f"Epoch {epoch} - Validation",
+                leave=False,
             ):
+                idx, X_batch = X_batch_info
                 X_batch = X_batch.to(next(observation_embedder.parameters()).dtype)
-                pred_next_obs = observation_embedder(X_batch)
-                y = observation_embedder.norm1(X_batch)
+                pred_next_obs, y = observation_embedder(X_batch)
                 loss = F.mse_loss(pred_next_obs, y)
                 val_losses.append(loss.item() * len(X_batch))
+                if val_i == 0:  # sample and visualize
+                    denormalized_pred_next_obs = (
+                        observation_embedder.denormalize_reconstruction(
+                            pred_next_obs[viz_idxes]
+                        )
+                    )
+                    pred_next_obs_sample = (
+                        denormalized_pred_next_obs.cpu().numpy().clip(0, 255)
+                    )
+                    for i, vis_idx in enumerate(viz_idxes):
+                        loss_val = F.mse_loss(pred_next_obs[vis_idx], y[vis_idx]).item()
+                        true_frame = (
+                            X_batch[vis_idx]
+                            .cpu()
+                            .numpy()
+                            .reshape(144, 160, 1)
+                            .astype(np.uint8)
+                        )
+                        pred_frame = (
+                            pred_next_obs_sample[i]
+                            .reshape(true_frame.shape)
+                            .astype(np.uint8)
+                        )
+                        wandb.log(
+                            {
+                                "epoch": epoch,
+                                f"val/viz_frame_{i}": wandb.Image(
+                                    np.concatenate([true_frame, pred_frame], axis=1),
+                                    caption=f"True frame (left) vs Predicted frame (right) loss: {loss_val:.2f}",
+                                ),
+                            }
+                        )
         avg_val_loss = np.mean(val_losses)
         writer.add_scalar("val/loss_mean", avg_val_loss, epoch)
         writer.add_scalar("val/loss_std", np.std(val_losses), epoch)
