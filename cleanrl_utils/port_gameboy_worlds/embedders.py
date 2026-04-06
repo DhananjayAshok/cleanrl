@@ -78,17 +78,16 @@ class PatchProjection(nn.Module):
     Divides the image into 16x16 patches, applies a random linear projection to each patch, and concatenates the results.
     """
 
-    def __init__(self, seed, normalized_observations=True, kernel_size=4, patch_dim=4):
+    def __init__(self, seed, normalized_observations=True, kernel_size=8, patch_dim=2):
         super().__init__()
         self.normalized_observations = normalized_observations
         self.seed = seed
         self.kernel_size = kernel_size
         self.patch_dim = patch_dim
-        self.patch_dim = 4
         n_h = 144 // self.kernel_size
         n_w = 160 // self.kernel_size
-        n_patches = n_h * n_w
-        self.output_dim = n_patches * self.patch_dim
+        self.n_patches = n_h * n_w
+        self.output_dim = self.n_patches * self.patch_dim
         self.make_network()
 
     def make_network(self):
@@ -106,11 +105,12 @@ class PatchProjection(nn.Module):
         torch.manual_seed(self.seed)
 
     def forward(self, x):
-        patches = extract_patches(
-            x, kernel_size=self.kernel_size
+        patches = extract_patches(x, kernel_size=self.kernel_size).view(
+            x.shape[0], self.n_patches, -1
         )  # (N, n_patches, 1, kernel_size, kernel_size)
-        vector = self.project(patches)  # (N, n_patches, patch_dim)
-        vector = vector.view(vector.shape[0], -1)  # (N, n_patches * patch_dim)
+        vector = self.project(patches.view(-1, self.kernel_size**2)).view(
+            x.shape[0], -1
+        )  # (N, n_patches * patch_dim)
         if self.normalized_observations:
             normalized = nn.functional.normalize(vector, dim=-1)
             return normalized
