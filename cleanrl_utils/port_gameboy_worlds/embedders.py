@@ -90,7 +90,6 @@ class PatchProjection(nn.Module):
         n_patches = n_h * n_w
         self.output_dim = n_patches * self.patch_dim
         self.make_network()
-        self.dtype = self.project[0].weight.dtype
 
     def make_network(self):
         torch.manual_seed(
@@ -103,6 +102,7 @@ class PatchProjection(nn.Module):
             nn.Flatten(),
             linear,
         )
+        self.dtype = linear.weight.dtype
         torch.manual_seed(self.seed)
 
     def forward(self, x):
