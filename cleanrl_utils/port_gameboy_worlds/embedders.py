@@ -254,6 +254,8 @@ class CNNEmbedder(nn.Module):
             embeddings = self.do_embed(batch_tensor)[0].view(
                 batch_tensor.shape[0], -1
             )  # (N, n_patches, patch_dim) -> (N, n_patches * patch_dim)
+            if self.normalized_observations:
+                embeddings = nn.functional.normalize(embeddings, dim=-1)
             return embeddings  # + noise
 
     def load(self, path):
