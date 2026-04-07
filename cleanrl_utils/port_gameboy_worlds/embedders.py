@@ -228,6 +228,17 @@ class CNNEmbedder(nn.Module):
         )  # (N, 1, 144, 160)
         return reconstructed, reconstructed_normed_x
 
+    def decode(self, embedding):
+        """Decode a flattened embedding (N, output_dim) back to pixel space (N, 1, 144, 160)."""
+        N = embedding.shape[0]
+        patch_embeddings = embedding.view(N, self.n_patches, self.patch_dim)
+        bridged = self.decoder_linear(patch_embeddings)  # (N, n_patches, chain_dim)
+        bridged = bridged.view(-1, *self.dummy_output_shape)  # (N*n_patches, C, H, W)
+        reconstructed = self.decoder_cnn_chain(bridged)
+        reconstructed = reconstructed.view(N, self.n_patches, 1, self.kernel_size, self.kernel_size)
+        reconstructed = reconstruct_from_patches(reconstructed, kernel_size=self.kernel_size)
+        return reconstructed  # (N, 1, 144, 160)
+
     def denormalize_reconstruction(self, reconstruction):
         patches = extract_patches(
             reconstruction, kernel_size=self.kernel_size
