@@ -32,6 +32,8 @@ class Args:
     """ """
     z_min: float = 3.0
     """ the minimum z value for a trajectory to be considered an outlier and saved. """
+    z_kind: str = "global"
+    """ the kind of z value to use for filtering trajectories. Can be "global" or "local". Global z values are computed across all trajectories in a replay buffer, while local z values are computed within each episode. """
     protected_lookback: int = 3
     """ the number of frames at the end of the trajectory to protect from cycle snipping. """
 
@@ -147,6 +149,7 @@ def snip_cycles(trajectory, protected_lookback=3):
 
 if __name__ == "__main__":
     args = tyro.cli(Args)
+    assert args.z_kind in ["global", "local"], "z_kind must be either global or local"
     if args.skip_embedding:
         args.observation_embedder = "empty"
     torch.manual_seed(args.seed)
@@ -158,10 +161,14 @@ if __name__ == "__main__":
 
     high_reward_trajectories = []
     for root, dirs, files in os.walk(args.replay_buffer_folder):
-        if "high_reward_trajectories.pkl" in files:
-            with open(os.path.join(root, "high_reward_trajectories.pkl"), "rb") as f:
+        if f"{args.z_kind}_high_reward_trajectories.pkl" in files:
+            with open(
+                os.path.join(root, f"{args.z_kind}_high_reward_trajectories.pkl"), "rb"
+            ) as f:
                 high_reward_trajes = pickle.load(f)
-            z_values = np.load(os.path.join(root, "high_reward_z_values.npy"))
+            z_values = np.load(
+                os.path.join(root, f"{args.z_kind}_high_reward_z_values.npy")
+            )
             selected_trajectories = []
             if args.z_min is None:
                 selected_trajectories = high_reward_trajes
@@ -237,9 +244,12 @@ if __name__ == "__main__":
         final_groups.append(all_trajectories)
     os.makedirs(args.save_path, exist_ok=True)
     with open(
-        os.path.join(args.save_path, "grouped_high_reward_trajectories.pkl"), "wb"
+        os.path.join(
+            args.save_path, f"grouped_{args.z_kind}_high_reward_trajectories.pkl"
+        ),
+        "wb",
     ) as f:
         pickle.dump(final_groups, f)
     print(
-        f"Saved grouped high reward trajectories to {args.save_path}/grouped_high_reward_trajectories.pkl"
+        f"Saved grouped {args.z_kind} high reward trajectories to {args.save_path}/grouped_{args.z_kind}_high_reward_trajectories.pkl"
     )

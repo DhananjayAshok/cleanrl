@@ -119,51 +119,61 @@ def save_outlier_trajectories(
     rewards,
     steps,
     load_path,
-    high_reward_indices,
+    global_high_reward_indices,
+    local_high_reward_indices,
     max_trajectory_length=30,
 ):
     trajectories = []
-    for high_reward_index in high_reward_indices:
-        traj_observations = [None for i in range(max_trajectory_length + 1)]
-        traj_actions = [None for i in range(max_trajectory_length)]
-        traj_high_level_actions = [None for i in range(max_trajectory_length)]
-        traj_rewards = [None for i in range(max_trajectory_length)]
-        current_index = high_reward_index
-        traj_observations[-1] = observations[current_index][
-            0, -1
-        ]  # assume single env and get last frame in the stack
-        for i in range(max_trajectory_length):
-            traj_observations[-2 - i] = observations[current_index - 1][0, -1]
-            traj_actions[-1 - i] = actions[current_index - 1]
-            traj_high_level_actions[-1 - i] = (
-                OneOfToDiscreteWrapper.get_high_level_action_static(
-                    actions[current_index - 1].reshape(-1)[0]
+    for high_reward_indices, label in [
+        (global_high_reward_indices, "global"),
+        (local_high_reward_indices, "local"),
+    ]:
+        for high_reward_index in high_reward_indices:
+            traj_observations = [None for i in range(max_trajectory_length + 1)]
+            traj_actions = [None for i in range(max_trajectory_length)]
+            traj_high_level_actions = [None for i in range(max_trajectory_length)]
+            traj_rewards = [None for i in range(max_trajectory_length)]
+            current_index = high_reward_index
+            traj_observations[-1] = observations[current_index][
+                0, -1
+            ]  # assume single env and get last frame in the stack
+            for i in range(max_trajectory_length):
+                traj_observations[-2 - i] = observations[current_index - 1][0, -1]
+                traj_actions[-1 - i] = actions[current_index - 1]
+                traj_high_level_actions[-1 - i] = (
+                    OneOfToDiscreteWrapper.get_high_level_action_static(
+                        actions[current_index - 1].reshape(-1)[0]
+                    )
                 )
+                traj_rewards[-1 - i] = rewards[current_index - 1]
+                if steps[current_index] == 0:
+                    break
+                current_index -= 1
+            traj_observations = [
+                traj_obs for traj_obs in traj_observations if traj_obs is not None
+            ]
+            traj_actions = [
+                traj_act for traj_act in traj_actions if traj_act is not None
+            ]
+            traj_rewards = [
+                traj_rew for traj_rew in traj_rewards if traj_rew is not None
+            ]
+            traj_high_level_actions = [
+                traj_high_act
+                for traj_high_act in traj_high_level_actions
+                if traj_high_act is not None
+            ]
+            trajectories.append(
+                (traj_observations, traj_actions, traj_high_level_actions, traj_rewards)
             )
-            traj_rewards[-1 - i] = rewards[current_index - 1]
-            if steps[current_index] == 0:
-                break
-            current_index -= 1
-        traj_observations = [
-            traj_obs for traj_obs in traj_observations if traj_obs is not None
-        ]
-        traj_actions = [traj_act for traj_act in traj_actions if traj_act is not None]
-        traj_rewards = [traj_rew for traj_rew in traj_rewards if traj_rew is not None]
-        traj_high_level_actions = [
-            traj_high_act
-            for traj_high_act in traj_high_level_actions
-            if traj_high_act is not None
-        ]
-        trajectories.append(
-            (traj_observations, traj_actions, traj_high_level_actions, traj_rewards)
-        )
-    pickle.dump(
-        trajectories,
-        open(load_path + "high_reward_trajectories.pkl", "wb"),
-    )
-    print(
-        f"Saved {len(trajectories)} high reward trajectories to {load_path + 'high_reward_trajectories.pkl'}"
-    )
+        if len(trajectories) != 0:
+            pickle.dump(
+                trajectories,
+                open(load_path + f"{label}_high_reward_trajectories.pkl", "wb"),
+            )
+            print(
+                f"Saved {len(trajectories)} {label} high reward trajectories to {load_path + f'{label}_high_reward_trajectories.pkl'}"
+            )
 
 
 def save_outliers(
@@ -198,26 +208,58 @@ def save_outliers(
     top_sample_indices = sorted_indices[-n_samples:]
     top_sample_indices = top_sample_indices[::-1]
     bottom_sample_indices = sorted_indices[:n_samples]
-    high_reward_indices = np.where(normalized_rewards > outlier_threshold)[0]
-    if len(high_reward_indices) > 0:
-        np.save(load_path + "high_reward_indices.npy", high_reward_indices)
-        print(
-            f"Saved {len(high_reward_indices)} reward indices to {load_path + 'high_reward_indices.npy'}"
+    global_high_reward_indices = np.where(normalized_rewards > outlier_threshold)[0]
+    local_high_reward_indices = []
+    local_high_reward_zs = []
+    for i in range(len(new_episode_indices)):
+        # don't bother for the last episode since it might be incomplete
+        if i == len(new_episode_indices) - 1:
+            continue
+        episode_start = new_episode_indices[i]
+        episode_end = new_episode_indices[i + 1]
+        episode_rewards = rewards[episode_start : episode_end + 1]
+        episode_reward_mean = episode_rewards.mean()
+        episode_reward_std = episode_rewards.std()
+        episode_normalized_rewards = (episode_rewards - episode_reward_mean) / (
+            episode_reward_std + 1e-8
         )
-        zs = np.zeros(shape=(len(high_reward_indices),))
-        for i in range(len(high_reward_indices)):
-            zs[i] = normalized_rewards[high_reward_indices[i]].item()
-        np.save(load_path + "high_reward_z_values.npy", zs)
-        save_outlier_trajectories(
-            observations,
-            actions,
-            rewards,
-            steps,
-            load_path,
-            high_reward_indices,
+        episode_high_reward_indices = np.where(
+            episode_normalized_rewards > outlier_threshold
+        )[0]
+        episode_high_reward_indices += episode_start
+        local_high_reward_indices.extend(episode_high_reward_indices.tolist())
+        local_high_reward_zs.extend(
+            episode_normalized_rewards[episode_high_reward_indices].tolist()
+        )
+
+    if len(global_high_reward_indices) > 0:
+        np.save(load_path + "high_reward_indices.npy", global_high_reward_indices)
+        print(
+            f"Saved {len(global_high_reward_indices)} reward indices to {load_path + 'high_reward_indices.npy'}"
+        )
+        zs = np.zeros(shape=(len(global_high_reward_indices),))
+        for i in range(len(global_high_reward_indices)):
+            zs[i] = normalized_rewards[global_high_reward_indices[i]].item()
+        np.save(load_path + "global_high_reward_z_values.npy", zs)
+    else:
+        print("No global high reward indices found.")
+    if len(local_high_reward_indices) > 0:
+        np.save(load_path + "local_high_reward_indices.npy", local_high_reward_indices)
+        np.save(load_path + "local_high_reward_z_values.npy", local_high_reward_zs)
+        print(
+            f"Saved {len(local_high_reward_indices)} reward indices to {load_path + 'local_high_reward_indices.npy'}"
         )
     else:
-        print("No high reward outliers found.")
+        print("No local high reward indices found.")
+    save_outlier_trajectories(
+        observations,
+        actions,
+        rewards,
+        steps,
+        load_path,
+        global_high_reward_indices=global_high_reward_indices,
+        local_high_reward_indices=local_high_reward_indices,
+    )
 
     save_transition_visualizations(
         observations,
