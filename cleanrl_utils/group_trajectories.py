@@ -32,6 +32,8 @@ class Args:
     """ """
     z_min: float = 3.0
     """ the minimum z value for a trajectory to be considered an outlier and saved. """
+    protected_lookback: int = 3
+    """ the number of frames at the end of the trajectory to protect from cycle snipping. """
 
 
 class EmptyEmbedder:
@@ -78,6 +80,69 @@ def frames_similar(embedder, frame1, frame2):
     embedding1 = embedder.embed(frame1)
     embedding2 = embedder.embed(frame2)
     return is_similar_enough(embedding1, embedding2)
+
+
+def get_first_cycle(unprotected_observation_frames):
+    """Check if there are any non consecutive repeated frames in the unprotected portion of the trajectory."""
+    seen_frames = []
+    for i, frame in enumerate(unprotected_observation_frames):
+        for seen_i, seen_frame in seen_frames:
+            if np.array_equal(frame, seen_frame) and abs(i - seen_i) > 1:
+                return (seen_i, i)
+        seen_frames.append((i, frame))
+    return None
+
+
+def snip_cycles(trajectory, protected_lookback=3):
+    """
+    Start at the first obs frame until the protected_lookback from the end, and look for cycles of repeated frames. If a cycle is found, snip out the frames from the first occurrence of the cycle until the last occurrence of the cycle, and concatenate the remaining frames together.
+    """
+    assert protected_lookback > 1, "protected_lookback must be greater than 1"
+    observations, actions, high_level_actions, rewards = trajectory
+    n = len(observations)
+    if n <= protected_lookback:
+        return trajectory  # not enough frames to snip
+
+    protected = n - protected_lookback
+    protected_observation_frames = observations[protected:]
+    protected_actions = actions[protected:]
+    protected_high_level_actions = high_level_actions[protected:]
+    protected_rewards = rewards[protected:]
+    working_observation_frames = observations[:protected]
+    working_actions = actions[:protected]
+    working_high_level_actions = high_level_actions[:protected]
+    working_rewards = rewards[:protected]
+
+    cycle = get_first_cycle(working_observation_frames)
+    if cycle is None:
+        return trajectory  # no cycles found, return original trajectory
+    while cycle is not None:
+        start, end = cycle
+        # Snip out the cycle frames from start to end (inclusive)
+        working_observation_frames = np.concatenate(
+            (working_observation_frames[:start], working_observation_frames[end + 1 :]),
+            axis=0,
+        )
+        working_actions = np.concatenate(
+            (working_actions[:start], working_actions[end + 1 :]), axis=0
+        )
+        working_high_level_actions = np.concatenate(
+            (working_high_level_actions[:start], working_high_level_actions[end + 1 :]),
+            axis=0,
+        )
+        working_rewards = np.concatenate(
+            (working_rewards[:start], working_rewards[end + 1 :]), axis=0
+        )
+        cycle = get_first_cycle(working_observation_frames)
+    observations = np.concatenate(
+        (working_observation_frames, protected_observation_frames), axis=0
+    )
+    actions = np.concatenate((working_actions, protected_actions), axis=0)
+    high_level_actions = np.concatenate(
+        (working_high_level_actions, protected_high_level_actions), axis=0
+    )
+    rewards = np.concatenate((working_rewards, protected_rewards), axis=0)
+    return trajectory
 
 
 if __name__ == "__main__":
@@ -159,9 +224,16 @@ if __name__ == "__main__":
             traj_observations, traj_actions, traj_high_level_actions, traj_rewards = (
                 high_reward_trajectories[index]
             )
-            all_trajectories.append(
-                (traj_observations, traj_actions, traj_high_level_actions, traj_rewards)
+            trajectory = (
+                traj_observations,
+                traj_actions,
+                traj_high_level_actions,
+                traj_rewards,
             )
+            trajectory = snip_cycles(
+                trajectory, protected_lookback=args.protected_lookback
+            )
+            all_trajectories.append(trajectory)
         final_groups.append(all_trajectories)
     os.makedirs(args.save_path, exist_ok=True)
     with open(
