@@ -67,7 +67,7 @@ def save_transition_visualizations(
     save_folder,
     n_pos_loops,
     top_sample_indices,
-    bottom_sample_indices,
+    local_top_sample_indices,
     n_plots=3,
 ):
     if n_plots <= 0:
@@ -92,24 +92,22 @@ def save_transition_visualizations(
             step,
             save_path + f"top_transition_{i}.png",
         )
-        """
         observation, new_observation, action, reward, step = (
-            observations[bottom_sample_indices[i]],
-            observations[bottom_sample_indices[i] + 1],
-            actions[bottom_sample_indices[i]],
-            rewards[bottom_sample_indices[i]],
-            steps[bottom_sample_indices[i]],
+            observations[local_top_sample_indices[i]],
+            observations[local_top_sample_indices[i] + 1],
+            actions[local_top_sample_indices[i]],
+            rewards[local_top_sample_indices[i]],
+            steps[local_top_sample_indices[i]],
         )
         visualize_transition(
             observation,
             new_observation,
             action,
             reward,
-            infer_global_step(bottom_sample_indices[i], n_pos_loops, buffer_size),
+            infer_global_step(local_top_sample_indices[i], n_pos_loops, buffer_size),
             step,
-            save_path + f"bottom_transition_{i}.png",
+            save_path + f"local_top_transition_{i}.png",
         )
-        """
     print(f"Saved transition visualizations for top {n_plots} rewards to {save_path}")
 
 
@@ -220,14 +218,20 @@ def save_outliers(
         episode_rewards = rewards[episode_start : episode_end + 1]
         episode_reward_mean = episode_rewards.mean()
         episode_reward_std = episode_rewards.std()
+
         episode_normalized_rewards = (episode_rewards - episode_reward_mean) / (
             episode_reward_std + 1e-8
         )
         episode_high_reward_indices = np.where(
             episode_normalized_rewards > outlier_threshold
         )[0]
-        episode_high_reward_indices += episode_start
-        local_high_reward_indices.extend(episode_high_reward_indices.tolist())
+        proper_indices = []
+        for index in episode_high_reward_indices:
+            if index >= len(rewards):
+                proper_indices.append(index - len(rewards))
+            else:
+                proper_indices.append(index)
+        local_high_reward_indices.extend(proper_indices)
         local_high_reward_zs.extend(
             episode_normalized_rewards[episode_high_reward_indices].tolist()
         )
@@ -260,7 +264,16 @@ def save_outliers(
         global_high_reward_indices=global_high_reward_indices,
         local_high_reward_indices=local_high_reward_indices,
     )
-
+    local_top_sample_indices = []
+    # randomly sample from the local high reward indices to get the same number of samples as the top global rewards for visualization
+    if len(local_high_reward_indices) > 0:
+        local_top_sample_indices = np.random.choice(
+            local_high_reward_indices,
+            size=min(n_samples, len(local_high_reward_indices)),
+            replace=False,
+        )
+    else:
+        pass
     save_transition_visualizations(
         observations,
         actions,
@@ -269,5 +282,5 @@ def save_outliers(
         save_folder,
         n_pos_loops,
         top_sample_indices,
-        bottom_sample_indices,
+        local_top_sample_indices,
     )
