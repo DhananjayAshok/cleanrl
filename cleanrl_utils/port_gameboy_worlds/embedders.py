@@ -233,6 +233,10 @@ class CNNEmbedder(nn.Module):
         """Decode a flattened embedding (N, output_dim) back to pixel space (N, 1, 144, 160)."""
         N = embedding.shape[0]
         patch_embeddings = embedding.view(N, self.n_patches, self.patch_dim)
+        if self.normalized_observations:
+            # embed() applies global L2 norm on top of the per-patch norm from embed_patches().
+            # The decoder was trained with per-patch unit-norm inputs, so renormalize here.
+            patch_embeddings = nn.functional.normalize(patch_embeddings, dim=-1)
         bridged = self.decoder_linear(patch_embeddings)  # (N, n_patches, chain_dim)
         bridged = bridged.view(-1, *self.dummy_output_shape)  # (N*n_patches, C, H, W)
         reconstructed = self.decoder_cnn_chain(bridged)

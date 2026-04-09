@@ -297,7 +297,10 @@ if __name__ == "__main__":
     for epoch in tqdm(range(args.num_epochs), desc="Training world model"):
         train_losses = []
         for X_batch, y_batch in tqdm(
-            train_dataloader, desc=f"Epoch {epoch} - Training", leave=False
+            train_dataloader,
+            desc=f"Epoch {epoch} - Training",
+            leave=False,
+            total=len(train_dataloader),
         ):
             world_model.train()
             optimizer.zero_grad()
@@ -315,6 +318,7 @@ if __name__ == "__main__":
                 enumerate(val_dataloader),
                 desc=f"Epoch {epoch} - Validation",
                 leave=False,
+                total=len(val_dataloader),
             ):
                 pred_next_obs = world_model(X_batch)
                 loss = F.mse_loss(pred_next_obs, y_batch)
