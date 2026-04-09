@@ -468,6 +468,7 @@ class WorldModel(nn.Module):
         if env_id is not None:
             action_dim = get_pokeworlds_n_actions(env_id)
             self.create_model(action_dim)
+        self.reset()
 
     def create_model(self, action_dim=None):
         observation_dim = self.embedder.output_dim * FRAME_STACK
@@ -497,8 +498,6 @@ class WorldModel(nn.Module):
         return next_obs_pred
 
     def predict(self, raw_obs, action):
-        if self.model is None:
-            self.create_model()
         with torch.no_grad():
             obs = self.embedder.embed(raw_obs).reshape(-1)  # flatten the frame stack
             x = torch.cat([obs, action.to(obs.device)], dim=-1).unsqueeze(
@@ -528,6 +527,8 @@ class WorldModel(nn.Module):
     def reset(self):
         if self.load_path is not None and self.model is None:
             self.load()
+        elif self.model is None:
+            self.create_model()
 
     def iterative_save(self):
         pass
@@ -536,7 +537,7 @@ class WorldModel(nn.Module):
         self.create_model(
             action_dim=get_pokeworlds_n_actions()
         )  # this is safe because it is only called after the STATIC_MAP is initialized by creating an environment, which happens in the training loop before the world model is used.
-        loaded_state = torch.load(self.load_path)
+        loaded_state = torch.load(self.load_path + "/world_model.pt")
         self.model.load_state_dict(loaded_state)
         print(f"Loaded world model from {self.load_path}")
 
