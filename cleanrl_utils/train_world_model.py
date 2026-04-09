@@ -220,6 +220,10 @@ class WorldModelDataset(Dataset):
 if __name__ == "__main__":
     args = tyro.cli(Args)
     assert args.buffer_save_path is not None, "buffer_save_path must be specified"
+    if args.observation_embedder == "cnn":
+        assert (
+            args.embedder_load_path is not None
+        ), "embedder_load_path must be specified when using cnn observation embedder"
     if os.path.exists(args.buffer_save_path + "/world_model.pt"):
         if not args.force_overwrite:
             print(
@@ -308,7 +312,9 @@ if __name__ == "__main__":
         with torch.no_grad():
             world_model.eval()
             for val_i, (X_batch, y_batch) in tqdm(
-                enumerate(val_dataloader), desc=f"Epoch {epoch} - Validation", leave=False
+                enumerate(val_dataloader),
+                desc=f"Epoch {epoch} - Validation",
+                leave=False,
             ):
                 pred_next_obs = world_model(X_batch)
                 loss = F.mse_loss(pred_next_obs, y_batch)
@@ -317,23 +323,39 @@ if __name__ == "__main__":
                     n_viz = min(args.validation_visualizations, len(X_batch))
                     viz_idxes = list(range(n_viz))
                     embedder = world_model.embedder
-                    pred_pixels = embedder.denormalize_reconstruction(
-                        embedder.decode(pred_next_obs[viz_idxes])
-                    ).cpu().numpy().clip(0, 255)
-                    true_pixels = embedder.denormalize_reconstruction(
-                        embedder.decode(y_batch[viz_idxes])
-                    ).cpu().numpy().clip(0, 255)
+                    pred_pixels = (
+                        embedder.denormalize_reconstruction(
+                            embedder.decode(pred_next_obs[viz_idxes])
+                        )
+                        .cpu()
+                        .numpy()
+                        .clip(0, 255)
+                    )
+                    true_pixels = (
+                        embedder.denormalize_reconstruction(
+                            embedder.decode(y_batch[viz_idxes])
+                        )
+                        .cpu()
+                        .numpy()
+                        .clip(0, 255)
+                    )
                     for i in viz_idxes:
-                        pred_frame = pred_pixels[i].reshape(144, 160, 1).astype(np.uint8)
-                        true_frame = true_pixels[i].reshape(144, 160, 1).astype(np.uint8)
+                        pred_frame = (
+                            pred_pixels[i].reshape(144, 160, 1).astype(np.uint8)
+                        )
+                        true_frame = (
+                            true_pixels[i].reshape(144, 160, 1).astype(np.uint8)
+                        )
                         mse = F.mse_loss(pred_next_obs[i], y_batch[i]).item()
-                        wandb.log({
-                            "epoch": epoch,
-                            f"val/viz_frame_{i}": wandb.Image(
-                                np.concatenate([true_frame, pred_frame], axis=1),
-                                caption=f"True (left) vs Predicted (right) | emb MSE: {mse:.4f}",
-                            ),
-                        })
+                        wandb.log(
+                            {
+                                "epoch": epoch,
+                                f"val/viz_frame_{i}": wandb.Image(
+                                    np.concatenate([true_frame, pred_frame], axis=1),
+                                    caption=f"True (left) vs Predicted (right) | emb MSE: {mse:.4f}",
+                                ),
+                            }
+                        )
         avg_val_loss = np.mean(val_losses)
         writer.add_scalar("val/loss_mean", avg_val_loss, epoch)
         writer.add_scalar("val/loss_std", np.std(val_losses), epoch)

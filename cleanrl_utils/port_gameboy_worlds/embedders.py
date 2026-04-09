@@ -184,6 +184,7 @@ class CNNEmbedder(nn.Module):
         self.normalized_observations = normalized_observations
         torch.manual_seed(seed)
         self.reset()
+        self.eval()
 
     def embed_patches(self, x):
         # x is (N, n_patches, 1, kernel_size, kernel_size)
@@ -235,8 +236,12 @@ class CNNEmbedder(nn.Module):
         bridged = self.decoder_linear(patch_embeddings)  # (N, n_patches, chain_dim)
         bridged = bridged.view(-1, *self.dummy_output_shape)  # (N*n_patches, C, H, W)
         reconstructed = self.decoder_cnn_chain(bridged)
-        reconstructed = reconstructed.view(N, self.n_patches, 1, self.kernel_size, self.kernel_size)
-        reconstructed = reconstruct_from_patches(reconstructed, kernel_size=self.kernel_size)
+        reconstructed = reconstructed.view(
+            N, self.n_patches, 1, self.kernel_size, self.kernel_size
+        )
+        reconstructed = reconstruct_from_patches(
+            reconstructed, kernel_size=self.kernel_size
+        )
         return reconstructed  # (N, 1, 144, 160)
 
     def denormalize_reconstruction(self, reconstruction):
