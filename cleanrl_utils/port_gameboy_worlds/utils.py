@@ -5,6 +5,7 @@ from time import perf_counter_ns
 from gameboy_worlds.utils import show_frames
 
 FRAME_STACK = 2
+USING_LOCAL = False
 
 
 class Profiler:

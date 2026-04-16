@@ -3,7 +3,7 @@ import pickle
 import numpy as np
 from matplotlib import pyplot as plt
 
-from .utils import FRAME_STACK
+from .utils import FRAME_STACK, USING_LOCAL
 from .env_factory import OneOfToDiscreteWrapper
 
 
@@ -92,22 +92,23 @@ def save_transition_visualizations(
             step,
             save_path + f"top_transition_{i}.png",
         )
-        observation, new_observation, action, reward, step = (
-            observations[local_top_sample_indices[i]],
-            observations[local_top_sample_indices[i] + 1],
-            actions[local_top_sample_indices[i]],
-            rewards[local_top_sample_indices[i]],
-            steps[local_top_sample_indices[i]],
-        )
-        visualize_transition(
-            observation,
-            new_observation,
-            action,
-            reward,
-            infer_global_step(local_top_sample_indices[i], n_pos_loops, buffer_size),
-            step,
-            save_path + f"local_top_transition_{i}.png",
-        )
+        if USING_LOCAL:
+            observation, new_observation, action, reward, step = (
+                observations[local_top_sample_indices[i]],
+                observations[local_top_sample_indices[i] + 1],
+                actions[local_top_sample_indices[i]],
+                rewards[local_top_sample_indices[i]],
+                steps[local_top_sample_indices[i]],
+            )
+            visualize_transition(
+                observation,
+                new_observation,
+                action,
+                reward,
+                infer_global_step(local_top_sample_indices[i], n_pos_loops, buffer_size),
+                step,
+                save_path + f"local_top_transition_{i}.png",
+            )
     print(f"Saved transition visualizations for top {n_plots} rewards to {save_path}")
 
 
@@ -122,10 +123,10 @@ def save_outlier_trajectories(
     max_trajectory_length=30,
 ):
     trajectories = []
-    for high_reward_indices, label in [
-        (global_high_reward_indices, "global"),
-        (local_high_reward_indices, "local"),
-    ]:
+    pairs = [(global_high_reward_indices, "global")]
+    if USING_LOCAL:
+        pairs.append((local_high_reward_indices, "local"))
+    for high_reward_indices, label in pairs:
         for high_reward_index in high_reward_indices:
             traj_observations = [None for i in range(max_trajectory_length + 1)]
             traj_actions = [None for i in range(max_trajectory_length)]
@@ -209,32 +210,33 @@ def save_outliers(
     global_high_reward_indices = np.where(normalized_rewards > outlier_threshold)[0]
     local_high_reward_indices = []
     local_high_reward_zs = []
-    for i in range(len(new_episode_indices)):
-        # don't bother for the last episode since it might be incomplete
-        if i == len(new_episode_indices) - 1:
-            continue
-        episode_start = new_episode_indices[i]
-        episode_end = new_episode_indices[i + 1]
-        episode_rewards = rewards[episode_start : episode_end + 1]
-        episode_reward_mean = episode_rewards.mean()
-        episode_reward_std = episode_rewards.std()
+    if USING_LOCAL:
+        for i in range(len(new_episode_indices)):
+            # don't bother for the last episode since it might be incomplete
+            if i == len(new_episode_indices) - 1:
+                continue
+            episode_start = new_episode_indices[i]
+            episode_end = new_episode_indices[i + 1]
+            episode_rewards = rewards[episode_start : episode_end + 1]
+            episode_reward_mean = episode_rewards.mean()
+            episode_reward_std = episode_rewards.std()
 
-        episode_normalized_rewards = (episode_rewards - episode_reward_mean) / (
-            episode_reward_std + 1e-8
-        )
-        episode_high_reward_indices = np.where(
-            episode_normalized_rewards > outlier_threshold
-        )[0]
-        proper_indices = []
-        for index in episode_high_reward_indices:
-            if index >= len(rewards):
-                proper_indices.append(index - len(rewards))
-            else:
-                proper_indices.append(index)
-        local_high_reward_indices.extend(proper_indices)
-        local_high_reward_zs.extend(
-            episode_normalized_rewards[episode_high_reward_indices].tolist()
-        )
+            episode_normalized_rewards = (episode_rewards - episode_reward_mean) / (
+                episode_reward_std + 1e-8
+            )
+            episode_high_reward_indices = np.where(
+                episode_normalized_rewards > outlier_threshold
+            )[0]
+            proper_indices = []
+            for index in episode_high_reward_indices:
+                if index >= len(rewards):
+                    proper_indices.append(index - len(rewards))
+                else:
+                    proper_indices.append(index)
+            local_high_reward_indices.extend(proper_indices)
+            local_high_reward_zs.extend(
+                episode_normalized_rewards[episode_high_reward_indices].tolist()
+            )
 
     if len(global_high_reward_indices) > 0:
         np.save(load_path + "high_reward_indices.npy", global_high_reward_indices)
@@ -247,14 +249,15 @@ def save_outliers(
         np.save(load_path + "global_high_reward_z_values.npy", zs)
     else:
         print("No global high reward indices found.")
-    if len(local_high_reward_indices) > 0:
-        np.save(load_path + "local_high_reward_indices.npy", local_high_reward_indices)
-        np.save(load_path + "local_high_reward_z_values.npy", local_high_reward_zs)
-        print(
-            f"Saved {len(local_high_reward_indices)} reward indices to {load_path + 'local_high_reward_indices.npy'}"
-        )
-    else:
-        print("No local high reward indices found.")
+    if USING_LOCAL:
+        if len(local_high_reward_indices) > 0:
+            np.save(load_path + "local_high_reward_indices.npy", local_high_reward_indices)
+            np.save(load_path + "local_high_reward_z_values.npy", local_high_reward_zs)
+            print(
+                f"Saved {len(local_high_reward_indices)} reward indices to {load_path + 'local_high_reward_indices.npy'}"
+            )
+        else:
+            print("No local high reward indices found.")
     save_outlier_trajectories(
         observations,
         actions,
@@ -265,15 +268,14 @@ def save_outliers(
         local_high_reward_indices=local_high_reward_indices,
     )
     local_top_sample_indices = []
-    # randomly sample from the local high reward indices to get the same number of samples as the top global rewards for visualization
-    if len(local_high_reward_indices) > 0:
-        local_top_sample_indices = np.random.choice(
-            local_high_reward_indices,
-            size=min(n_samples, len(local_high_reward_indices)),
-            replace=False,
-        )
-    else:
-        pass
+    if USING_LOCAL:
+        # randomly sample from the local high reward indices to get the same number of samples as the top global rewards for visualization
+        if len(local_high_reward_indices) > 0:
+            local_top_sample_indices = np.random.choice(
+                local_high_reward_indices,
+                size=min(n_samples, len(local_high_reward_indices)),
+                replace=False,
+            )
     save_transition_visualizations(
         observations,
         actions,
