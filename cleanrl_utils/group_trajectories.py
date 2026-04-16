@@ -89,7 +89,7 @@ def get_first_cycle(unprotected_observation_frames):
     seen_frames = []
     for i, frame in enumerate(unprotected_observation_frames):
         for seen_i, seen_frame in seen_frames:
-            if np.array_equal(frame, seen_frame) and abs(i - seen_i) > 1:
+            if np.array_equal(frame, seen_frame):
                 return (seen_i, i)
         seen_frames.append((i, frame))
     return None
