@@ -95,7 +95,16 @@ def get_first_cycle(unprotected_observation_frames):
     return None
 
 
-def snip_cycles(trajectory, protected_lookback=3):
+def snip_array_list(start, end, array_list):
+    if start == 0:
+        return array_list[end:]
+    elif end == len(array_list) - 1:
+        return array_list[:start]
+    else:
+        return np.concatenate((array_list[:start], array_list[end + 1 :]), axis=0)
+
+
+def snip_cycles(trajectory, protected_lookback=5):
     """
     Start at the first obs frame until the protected_lookback from the end, and look for cycles of repeated frames. If a cycle is found, snip out the frames from the first occurrence of the cycle until the last occurrence of the cycle, and concatenate the remaining frames together.
     """
@@ -114,6 +123,7 @@ def snip_cycles(trajectory, protected_lookback=3):
     working_actions = actions[:protected]
     working_high_level_actions = high_level_actions[:protected]
     working_rewards = rewards[:protected]
+    # breakpoint()
 
     cycle = get_first_cycle(working_observation_frames)
     if cycle is None:
@@ -121,20 +131,14 @@ def snip_cycles(trajectory, protected_lookback=3):
     while cycle is not None:
         start, end = cycle
         # Snip out the cycle frames from start to end (inclusive)
-        working_observation_frames = np.concatenate(
-            (working_observation_frames[:start], working_observation_frames[end + 1 :]),
-            axis=0,
+        working_observation_frames = snip_array_list(
+            start, end, working_observation_frames
         )
-        working_actions = np.concatenate(
-            (working_actions[:start], working_actions[end + 1 :]), axis=0
+        working_actions = snip_array_list(start, end, working_actions)
+        working_high_level_actions = snip_array_list(
+            start, end, working_high_level_actions
         )
-        working_high_level_actions = np.concatenate(
-            (working_high_level_actions[:start], working_high_level_actions[end + 1 :]),
-            axis=0,
-        )
-        working_rewards = np.concatenate(
-            (working_rewards[:start], working_rewards[end + 1 :]), axis=0
-        )
+        working_rewards = snip_array_list(start, end, working_rewards)
         cycle = get_first_cycle(working_observation_frames)
     observations = np.concatenate(
         (working_observation_frames, protected_observation_frames), axis=0
