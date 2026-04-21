@@ -209,7 +209,8 @@ def infer_groups(embedder, high_reward_trajectories, indices=None, pbar=None):
         if indices is None:
             indices = range(len(high_reward_trajectories))
             pbar = tqdm(
-                total=1 + math.ceil(math.log2(len(high_reward_trajectories))),
+                total=len(high_reward_trajectories),
+                unit="trajectory",
                 desc="Inferring groups",
             )
         mid = len(high_reward_trajectories) // 2
