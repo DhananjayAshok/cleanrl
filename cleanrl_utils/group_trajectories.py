@@ -197,13 +197,16 @@ def infer_groups(embedder, high_reward_trajectories, indices=None, pbar=None):
     if len(high_reward_trajectories) == 1:
         assert indices is not None and len(indices) == 1
         return [
-            {"indexes": [indices[0]], "final_frames": [high_reward_trajectories[0][-1]]}
-        ]  # TODO Check obs shape
+            {
+                "indexes": [indices[0]],
+                "final_frames": [high_reward_trajectories[0][0][-1]],
+            }
+        ]
     else:
         if indices is None:
             indices = range(len(high_reward_trajectories))
             pbar = tqdm(
-                total=math.ceil(math.log2(len(high_reward_trajectories))),
+                total=1 + math.ceil(math.log2(len(high_reward_trajectories))),
                 desc="Inferring groups",
             )
         mid = len(high_reward_trajectories) // 2
