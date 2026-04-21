@@ -1,4 +1,5 @@
 import os
+import math
 import numpy as np
 import torch
 import pickle
@@ -149,6 +150,72 @@ def snip_cycles(trajectory, protected_lookback=5):
     )
     rewards = np.concatenate((working_rewards, protected_rewards), axis=0)
     return trajectory
+
+
+def get_check_frames(final_frames, n_sample):
+    if len(final_frames) > n_sample:
+        check_frames = np.choice(final_frames, n=n_sample, replace=False)
+    else:
+        check_frames = final_frames
+    return check_frames
+
+
+def has_overlap(embedder, frames_1, frames_2):
+    for candidate_frame in frames_1:
+        for reference_frame in frames_2:
+            if frames_similar(embedder, candidate_frame, reference_frame):
+                return True
+    return False
+
+
+def merge_groups(embedder, group_1, group_2, n_sample=5):
+    # absorb group_2 into group_1
+    for first_group in group_1:
+        if len(group_2) == 0:
+            return group_1
+        check_frames_1 = get_check_frames(
+            first_group["final_frames"], n_sample=n_sample
+        )
+        new_group_2 = []
+        for i in range(len(group_2)):
+            second_group = group_2[i]
+            check_frames_2 = get_check_frames(
+                second_group["final_frames"], n_sample=n_sample
+            )
+            if has_overlap(embedder, check_frames_1, check_frames_2):
+                first_group["indexes"].extend(second_group["indexes"])
+                first_group["final_frames"].extend(second_group["final_frames"])
+            else:
+                new_group_2.append(second_group)
+        group_2 = new_group_2
+    if len(group_2) > 0:
+        group_1.extend(group_2)
+    return group_1
+
+
+def infer_groups(embedder, high_reward_trajectories, indices=None, pbar=None):
+    if len(high_reward_trajectories) == 1:
+        assert indices is not None and len(indices) == 1
+        return [
+            {"indexes": [indices[0]], "final_frames": [high_reward_trajectories[0][-1]]}
+        ]  # TODO Check obs shape
+    else:
+        if indices is None:
+            indices = range(len(high_reward_trajectories))
+            pbar = tqdm(
+                total=math.ceil(math.log2(len(high_reward_trajectories))),
+                desc="Inferring groups",
+            )
+        mid = len(high_reward_trajectories) // 2
+        left_groups = infer_groups(
+            embedder, high_reward_trajectories[:mid], indices=indices[:mid], pbar=pbar
+        )
+        right_groups = infer_groups(
+            embedder, high_reward_trajectories[mid:], indices=indices[mid:], pbar=pbar
+        )
+        merged_group = merge_groups(embedder, left_groups, right_groups)
+        pbar.update(1)
+        return merged_group
 
 
 if __name__ == "__main__":
