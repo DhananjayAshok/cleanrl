@@ -154,7 +154,10 @@ def snip_cycles(trajectory, protected_lookback=5):
 
 def get_check_frames(final_frames, n_sample):
     if len(final_frames) > n_sample:
-        check_frames = np.random.choice(final_frames, size=n_sample, replace=False)
+        frame_choices = np.random.choice(
+            range(len(final_frames)), size=n_sample, replace=False
+        )
+        check_frames = [final_frames[i] for i in frame_choices]
     else:
         check_frames = final_frames
     return check_frames
