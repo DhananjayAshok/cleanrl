@@ -259,39 +259,7 @@ if __name__ == "__main__":
         )
 
     # group high reward trajectories by similarity of their final frames
-    groups = []
-    # each group is a dict {indexes: list of trajectory indices in self.high_reward_trajectories, final_frames: list of final frames for those trajectories}
-    # breakpoint()
-    for i, (
-        traj_observations,
-        traj_actions,
-        traj_high_level_actions,
-        traj_rewards,
-    ) in tqdm(
-        enumerate(high_reward_trajectories),
-        desc="Grouping high reward trajectories",
-        total=len(high_reward_trajectories),
-    ):
-        final_frame = traj_observations[-1]
-        found_group = False
-        for group in groups:
-            all_final_frames = group["final_frames"]
-            for group_final_frame in all_final_frames:
-                if frames_similar(embedder, final_frame, group_final_frame):
-                    group["indexes"].append(i)
-                    if not is_equal(final_frame, group_final_frame):
-                        group["final_frames"].append(final_frame)
-                    found_group = True
-                    break
-            if found_group:
-                break
-        if not found_group:
-            groups.append(
-                {
-                    "indexes": [i],
-                    "final_frames": [final_frame],
-                }
-            )
+    groups = infer_groups(embedder, high_reward_trajectories)
     print(f"Created {len(groups)} groups of high reward trajectories.")
 
     final_groups = []
