@@ -36,7 +36,7 @@ if __name__ == "__main__":
     for exp_name in experiment_dirs:
         if exp_name not in os.listdir(args.video_session_dir):
             raise ValueError(
-                f"video_session_dir is missing experiment dir: {exp_name}. Every run name in the model_dir must be in this directory"
+                f"video_session_dir {args.video_session_dir} is missing experiment dir: {exp_name} (has: {os.listdir(args.video_session_dir)}). Every run name in the model_dir must be in this directory"
             )
         # Delete the exp_video directory for all models, only the winning models will regenerate their video directories after the losers are deleted.
         exp_video_dir = os.path.join(args.video_session_dir, exp_name)
@@ -71,14 +71,14 @@ if __name__ == "__main__":
         for exp_name in experiment_dirs:
             if exp_name not in rb_dirs:
                 raise ValueError(
-                    f"replay_buffer_path is missing experiment dir: {exp_name}"
+                    f"replay_buffer_path {args.replay_buffer_save_folder} is missing experiment dir: {exp_name} (has: {os.listdir(args.replay_buffer_save_folder)})"
                 )
             obs_path = os.path.join(
                 args.replay_buffer_save_folder, exp_name, "observations.npy"
             )
             if not os.path.isfile(obs_path):
                 raise ValueError(
-                    f"Missing observations.npy in {os.path.join(args.replay_buffer_save_folder, exp_name)}"
+                    f"Missing observations.npy in {os.path.join(args.replay_buffer_save_folder, exp_name)} (has: {os.listdir(os.path.join(args.replay_buffer_save_folder, exp_name))})"
                 )
 
     rewards = {}

@@ -270,7 +270,9 @@ if __name__ == "__main__":
     print(f"Created {len(groups)} groups of high reward trajectories.")
 
     final_groups = []
-    for i, group in enumerate(groups):
+    for i, group in tqdm(
+        enumerate(groups), total=len(groups), desc="Snipping trajectories"
+    ):
         group_indexes = group["indexes"]
         all_trajectories = []
         for index in group_indexes:
