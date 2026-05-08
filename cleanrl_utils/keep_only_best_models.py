@@ -14,9 +14,9 @@ class Args:
     """ Path to a directory /path/to/video_session_dir/<exp_name>/<instance_id>/(video files). Every run name in the model_dir must be in this directory """
     best_k: int = 10
     """ Number of best models to keep. The models will be sorted by the average episodic return in the eval_reward.txt file. """
-    clear_loser_replay_buffer: bool = False
+    clear_loser_replay_buffer: bool = True
     """ If True, the replay buffers of the models that are not in the best k will be deleted to save disk space. """
-    clear_loser_high_reward_trajectories: bool = False
+    clear_loser_high_reward_trajectories: bool = True
     """ If False, do not clear the high reward trajectories when deleting buffer """
     replay_buffer_save_folder: str = None
     """ Path to a directory /path/to/replay_buffer_save_folder/<exp_name>/(replay buffer info like observations.npy). Must match the run names of model_dir exactly """
