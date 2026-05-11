@@ -18,10 +18,30 @@ class Args:
     """ If True, the replay buffers of the models that are not in the best k will be deleted to save disk space. """
     clear_loser_high_reward_trajectories: bool = True
     """ If False, do not clear the high reward trajectories when deleting buffer """
+    clear_winner_replay_buffer: bool = True
+    """ If True, the replay buffers of all models will be deleted to save disk space. Overrides clear_loser_replay_buffer. """
     replay_buffer_save_folder: str = None
     """ Path to a directory /path/to/replay_buffer_save_folder/<exp_name>/(replay buffer info like observations.npy). Must match the run names of model_dir exactly """
     verbose: bool = True
     """ If True, print the names of the winning models and their rewards. """
+
+
+def clear_replay_buffer(rb_exp_path, clear_high_reward_trajectories):
+    # rb_exp_path may already have been deleted, in which case skip
+    if not os.path.exists(rb_exp_path):
+        return
+    if clear_high_reward_trajectories:
+        shutil.rmtree(rb_exp_path)
+    else:
+        for fname in [
+            "observations.npy",
+            "actions.npy",
+            "rewards.npy",
+            "steps.npy",
+        ]:
+            fpath = os.path.join(rb_exp_path, fname)
+            if os.path.isfile(fpath):
+                os.remove(fpath)
 
 
 if __name__ == "__main__":
@@ -62,10 +82,10 @@ if __name__ == "__main__":
             "clear_loser_high_reward_trajectories requires clear_loser_replay_buffer to be True"
         )
 
-    if args.clear_loser_replay_buffer:
+    if args.clear_loser_replay_buffer or args.clear_winner_replay_buffer:
         if args.replay_buffer_save_folder is None:
             raise ValueError(
-                "replay_buffer_save_folder must be provided when clear_loser_replay_buffer is True"
+                "replay_buffer_save_folder must be provided when clear_loser_replay_buffer is True or clear_winner_replay_buffer is True"
             )
         rb_dirs = set(os.listdir(args.replay_buffer_save_folder))
         for exp_name in experiment_dirs:
@@ -95,26 +115,25 @@ if __name__ == "__main__":
     sorted_dirs = sorted(rewards, key=lambda x: rewards[x], reverse=True)
     best_dirs = set(sorted_dirs[: args.best_k])
     loser_dirs = [d for d in sorted_dirs if d not in best_dirs]
+    if (
+        args.clear_winner_replay_buffer
+    ):  # just clear all replay buffers, no need to check if it's a winner or loser
+        for exp_name, model_dir in tqdm(
+            sorted_dirs, desc="Clearing all replay buffers"
+        ):
+            rb_exp_path = os.path.join(args.replay_buffer_save_folder, exp_name)
+            clear_replay_buffer(rb_exp_path, False)
 
     winner_exp_names = {winner_exp for winner_exp, _ in best_dirs}
     for exp_name, model_dir in tqdm(loser_dirs, desc="Deleting losers"):
         loser_model_path = os.path.join(args.model_dir, exp_name, model_dir)
         shutil.rmtree(loser_model_path)
-
-        if args.clear_loser_replay_buffer and exp_name not in winner_exp_names:
-            rb_exp_path = os.path.join(args.replay_buffer_save_folder, exp_name)
-            if args.clear_loser_high_reward_trajectories:
-                shutil.rmtree(rb_exp_path)
-            else:
-                for fname in [
-                    "observations.npy",
-                    "actions.npy",
-                    "rewards.npy",
-                    "steps.npy",
-                ]:
-                    fpath = os.path.join(rb_exp_path, fname)
-                    if os.path.isfile(fpath):
-                        os.remove(fpath)
+        rb_exp_path = os.path.join(args.replay_buffer_save_folder, exp_name)
+        is_actually_loser = (
+            exp_name not in winner_exp_names
+        )  # might have a different checkpoint that won.
+        if args.clear_loser_replay_buffer and is_actually_loser:
+            clear_replay_buffer(rb_exp_path, args.clear_loser_high_reward_trajectories)
 
     if args.verbose:
         print("Kept the following best models:")
