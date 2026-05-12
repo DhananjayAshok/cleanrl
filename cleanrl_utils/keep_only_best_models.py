@@ -44,6 +44,13 @@ def clear_replay_buffer(rb_exp_path, clear_high_reward_trajectories):
                 os.remove(fpath)
 
 
+def experiment_has_video(video_dirs, exp_name):
+    for video_dir in video_dirs:
+        if exp_name in video_dir:
+            return True
+    return False
+
+
 if __name__ == "__main__":
     args = tyro.cli(Args)
 
@@ -53,8 +60,9 @@ if __name__ == "__main__":
     experiment_dirs = os.listdir(args.model_dir)
     total_models = 0
     model_dirs = {}
+    video_dirs = os.listdir(args.video_session_dir)
     for exp_name in experiment_dirs:
-        if exp_name not in os.listdir(args.video_session_dir):
+        if not experiment_has_video(video_dirs, exp_name):
             raise ValueError(
                 f"video_session_dir {args.video_session_dir} is missing experiment dir: {exp_name} (has: {os.listdir(args.video_session_dir)}). Every run name in the model_dir must be in this directory"
             )
