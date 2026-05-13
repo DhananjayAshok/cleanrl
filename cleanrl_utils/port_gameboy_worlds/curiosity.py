@@ -26,6 +26,8 @@ def chunk_ocr_frame(frame, n_chunks=8):
     returns: list of n_chunks arrays each of shape (height, width//n_chunks)
     """
     _, width = frame.shape
+    if width < n_chunks:
+        return [frame]
     chunk_width = width // n_chunks
     chunks = []
     for i in range(n_chunks):
