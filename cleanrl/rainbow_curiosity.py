@@ -684,7 +684,7 @@ if __name__ == "__main__":
                         args.tau * param.data + (1.0 - args.tau) * target_param.data
                     )
 
-    rb.save(args.replay_buffer_save_folder, args.exp_name)
+    rb.save(args.replay_buffer_save_folder, args.exp_name, args.env_id)
     envs.close()
     writer.close()
 

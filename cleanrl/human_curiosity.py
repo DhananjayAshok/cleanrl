@@ -234,5 +234,5 @@ if __name__ == "__main__":
     this_episode_reward = sum(episode_rewards)
     print(f"global_step={global_step}, episode_reward={this_episode_reward}")
 
-    rb.save(args.replay_buffer_save_folder, args.exp_name)
+    rb.save(args.replay_buffer_save_folder, args.exp_name, args.env_id)
     envs.close()

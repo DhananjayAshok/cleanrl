@@ -110,7 +110,7 @@ def snip_cycles(trajectory, protected_lookback=5):
     Start at the first obs frame until the protected_lookback from the end, and look for cycles of repeated frames. If a cycle is found, snip out the frames from the first occurrence of the cycle until the last occurrence of the cycle, and concatenate the remaining frames together.
     """
     assert protected_lookback > 1, "protected_lookback must be greater than 1"
-    observations, actions, high_level_actions, rewards = trajectory
+    observations, actions, high_level_actions, rewards, init_state = trajectory
     n = len(observations)
     if n <= protected_lookback:
         return trajectory  # not enough frames to snip
@@ -149,7 +149,7 @@ def snip_cycles(trajectory, protected_lookback=5):
         (working_high_level_actions, protected_high_level_actions), axis=0
     )
     rewards = np.concatenate((working_rewards, protected_rewards), axis=0)
-    return trajectory
+    return (observations, actions, high_level_actions, rewards, init_state)
 
 
 def get_check_frames(final_frames, n_sample):
@@ -276,17 +276,9 @@ if __name__ == "__main__":
         group_indexes = group["indexes"]
         all_trajectories = []
         for index in group_indexes:
-            traj_observations, traj_actions, traj_high_level_actions, traj_rewards = (
-                high_reward_trajectories[index]
-            )
-            trajectory = (
-                traj_observations,
-                traj_actions,
-                traj_high_level_actions,
-                traj_rewards,
-            )
             trajectory = snip_cycles(
-                trajectory, protected_lookback=args.protected_lookback
+                high_reward_trajectories[index],
+                protected_lookback=args.protected_lookback,
             )
             all_trajectories.append(trajectory)
         final_groups.append(all_trajectories)

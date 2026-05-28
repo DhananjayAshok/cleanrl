@@ -473,7 +473,7 @@ if __name__ == "__main__":
             "charts/SPS", int(global_step / (time.time() - start_time)), global_step
         )
 
-    rb.save(args.replay_buffer_save_folder, args.exp_name)
+    rb.save(args.replay_buffer_save_folder, args.exp_name, args.env_id)
     envs.close()
     writer.close()
 

@@ -1,6 +1,7 @@
 import os
 import numpy as np
 from cleanrl_utils.buffers import ReplayBuffer
+from cleanrl_utils.port_gameboy_worlds.env_factory import parse_pokeworlds_id_string
 
 from .visualization import save_outliers
 
@@ -62,11 +63,22 @@ class PokemonReplayBuffer(ReplayBuffer):
         self.step_counts = self.step_counts * (1 - done)  # reset step count on done
         super().add(obs, next_obs, action, reward, done, infos)
 
-    def save(self, save_folder, run_name):
+    def save(self, save_folder, run_name, env_id):
         if save_folder is not None:
+            (
+                game,
+                environment_variant,
+                init_state,
+                controller_variant,
+                max_steps,
+                save_video,
+            ) = parse_pokeworlds_id_string(env_id)
             print("Saving replay buffer...")
             save_path = f"{save_folder}/{run_name}/"
             os.makedirs(save_path, exist_ok=True)
+            # save an init_state.txt file with the name of the init state:
+            with open(save_path + "init_state.txt", "w") as f:
+                f.write(init_state)
             save_size = None
             if self.full:
                 np.save(save_path + "/observations.npy", self.observations)
@@ -82,6 +94,7 @@ class PokemonReplayBuffer(ReplayBuffer):
                     self.steps,
                     save_path,
                     self.n_pos_loops,
+                    init_state,
                 )
             else:
                 np.save(save_path + "/observations.npy", self.observations[: self.pos])
@@ -97,5 +110,6 @@ class PokemonReplayBuffer(ReplayBuffer):
                     self.steps[: self.pos],
                     save_path,
                     self.n_pos_loops,
+                    init_state,
                 )
             print(f"Saved replay buffer with {save_size} entries to {save_path}")

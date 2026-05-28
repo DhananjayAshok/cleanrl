@@ -105,7 +105,9 @@ def save_transition_visualizations(
                 new_observation,
                 action,
                 reward,
-                infer_global_step(local_top_sample_indices[i], n_pos_loops, buffer_size),
+                infer_global_step(
+                    local_top_sample_indices[i], n_pos_loops, buffer_size
+                ),
                 step,
                 save_path + f"local_top_transition_{i}.png",
             )
@@ -120,6 +122,7 @@ def save_outlier_trajectories(
     load_path,
     global_high_reward_indices,
     local_high_reward_indices,
+    init_state,
     max_trajectory_length=30,
 ):
     trajectories = []
@@ -163,7 +166,13 @@ def save_outlier_trajectories(
                 if traj_high_act is not None
             ]
             trajectories.append(
-                (traj_observations, traj_actions, traj_high_level_actions, traj_rewards)
+                (
+                    traj_observations,
+                    traj_actions,
+                    traj_high_level_actions,
+                    traj_rewards,
+                    init_state,
+                )
             )
         if len(trajectories) != 0:
             pickle.dump(
@@ -182,6 +191,7 @@ def save_outliers(
     steps,
     save_folder,
     n_pos_loops,
+    init_state,
     frac_samples=0.05,
     outlier_threshold=2.5,
 ):
@@ -251,7 +261,9 @@ def save_outliers(
         print("No global high reward indices found.")
     if USING_LOCAL:
         if len(local_high_reward_indices) > 0:
-            np.save(load_path + "local_high_reward_indices.npy", local_high_reward_indices)
+            np.save(
+                load_path + "local_high_reward_indices.npy", local_high_reward_indices
+            )
             np.save(load_path + "local_high_reward_z_values.npy", local_high_reward_zs)
             print(
                 f"Saved {len(local_high_reward_indices)} reward indices to {load_path + 'local_high_reward_indices.npy'}"
@@ -266,6 +278,7 @@ def save_outliers(
         load_path,
         global_high_reward_indices=global_high_reward_indices,
         local_high_reward_indices=local_high_reward_indices,
+        init_state=init_state,
     )
     local_top_sample_indices = []
     if USING_LOCAL:

@@ -411,7 +411,7 @@ if __name__ == "__main__":
             model_save_folder=args.model_save_path,
         )
 
-    rb.save(args.replay_buffer_save_folder, args.exp_name)
+    rb.save(args.replay_buffer_save_folder, args.exp_name, args.env_id)
     envs.close()
     writer.close()
 
