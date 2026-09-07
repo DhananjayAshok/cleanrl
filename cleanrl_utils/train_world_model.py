@@ -24,6 +24,7 @@ from tqdm import tqdm
 from cleanrl_utils.port_gameboy_worlds import (
     WorldModel,
     get_pokeworlds_n_actions,
+    save_action_space,
     PatchProjection,
     CNNEmbedder,
     PokemonReplayBuffer as ReplayBuffer,
@@ -254,6 +255,7 @@ if __name__ == "__main__":
     assert torch.cuda.is_available(), "cuda flag is True but no cuda available"
     device = torch.device("cuda")
     dataset = WorldModelDataset(args)
+    save_action_space(args.buffer_save_path, args.env_id)
     # split into train and val
     train_size = int(0.9 * len(dataset))
     val_size = len(dataset) - train_size

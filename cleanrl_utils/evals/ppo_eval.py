@@ -62,6 +62,12 @@ def evaluate(
             for curiosity_reward in all_curiosity_rewards:
                 f.write(f"{curiosity_reward}\n")
 
+        # One SyncVectorEnv is built per model, and each wraps a live PyBoy emulator whose
+        # memory is native — rebinding `envs` on the next iteration does not release it.
+        # Without this the loop leaks one emulator per model, which is why the states with
+        # the most accumulated agent iterations (ppo_agent_0..N) were the ones that OOMed.
+        envs.close()
+
     return
 
 

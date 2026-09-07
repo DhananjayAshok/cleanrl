@@ -6,7 +6,11 @@ import torch.nn as nn
 from sklearn.cluster import MiniBatchKMeans, KMeans
 
 from .utils import FRAME_STACK
-from .env_factory import get_pokeworlds_n_actions
+from .env_factory import (
+    ACTION_SPACE_FILENAME,
+    get_pokeworlds_n_actions,
+    load_action_space,
+)
 from .embedders import PatchProjection, CNNEmbedder
 
 
@@ -467,6 +471,7 @@ class WorldModel(nn.Module):
         self.normalized_observations = normalized_observations
         self.save_path = save_path
         self.load_path = load_path
+        self.action_space_spec = None
         if env_id is not None:
             action_dim = get_pokeworlds_n_actions(env_id)
             self.create_model(action_dim)
@@ -536,12 +541,31 @@ class WorldModel(nn.Module):
         pass
 
     def load(self):
-        self.create_model(
-            action_dim=get_pokeworlds_n_actions()
-        )  # this is safe because it is only called after the STATIC_MAP is initialized by creating an environment, which happens in the training loop before the world model is used.
-        loaded_state = torch.load(self.load_path + "/world_model.pt")
-        self.model.load_state_dict(loaded_state)
-        print(f"Loaded world model from {self.load_path}")
+        device = next(self.embedder.parameters()).device
+        loaded_state = torch.load(
+            self.load_path + "/world_model.pt", map_location=device
+        )
+        if "action_embedder.weight" not in loaded_state:
+            raise ValueError(
+                f"Checkpoint at {self.load_path}/world_model.pt has no 'action_embedder.weight'. "
+                "Expected a full WorldModel.state_dict() as saved by train_world_model.py."
+            )
+        action_dim = loaded_state["action_embedder.weight"].shape[0]
+        if os.path.exists(os.path.join(self.load_path, ACTION_SPACE_FILENAME)):
+            spec = load_action_space(self.load_path)
+            self.action_space_spec = spec
+            if spec["n_actions"] != action_dim:
+                raise ValueError(
+                    f"World model at {self.load_path} was trained with {action_dim} actions "
+                    f"but its {ACTION_SPACE_FILENAME} describes {spec['n_actions']}. "
+                    "The checkpoint and its action space are out of sync."
+                )
+        else:
+            self.action_space_spec = None
+        self.create_model(action_dim=action_dim)
+        self.load_state_dict(loaded_state)
+        self.to(device)
+        print(f"Loaded world model with {action_dim} actions from {self.load_path}")
 
 
 def get_curiosity_module(args):

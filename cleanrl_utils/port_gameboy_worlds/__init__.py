@@ -8,10 +8,16 @@ from .utils import (
     save_all_models,
 )
 from .env_factory import (
+    ACTION_SPACE_FILENAME,
     OneOfToDiscreteWrapper,
     parse_pokeworlds_id_string,
     get_gameboy_worlds_environment,
     get_pokeworlds_n_actions,
+    get_action_space_spec,
+    save_action_space,
+    load_action_space,
+    verify_action_space,
+    resolve_action_class,
     gameboy_worlds_make_env,
 )
 from .embedders import (

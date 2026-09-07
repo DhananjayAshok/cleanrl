@@ -1,13 +1,21 @@
+import json
+import os
+
 from gameboy_worlds import get_environment
 import gymnasium as gym
 from gymnasium.spaces import Discrete
 
 from .utils import FRAME_STACK
 
+ACTION_SPACE_FILENAME = "action_space.json"
+
 
 class OneOfToDiscreteWrapper(gym.ActionWrapper):
     STATIC_MAP = {}
     """ Set on init to allow static access of a dict mapping actions to HighLevelActions """
+
+    STATIC_SPEC = None
+    """ Set on init: the serializable description of the discrete action space. """
 
     def __init__(self, env):
         super().__init__(env)
@@ -20,6 +28,26 @@ class OneOfToDiscreteWrapper(gym.ActionWrapper):
         for action in range(self.action_space.n):
             high_level_action, kwargs = self.get_high_level_action(action)
             OneOfToDiscreteWrapper.STATIC_MAP[action] = (high_level_action, kwargs)
+        OneOfToDiscreteWrapper.STATIC_SPEC = self.describe_action_space()
+
+    def describe_action_space(self):
+        entries = []
+        for action in range(self.action_space.n):
+            sub_index, sub_action = self.action(action)
+            action_class, _ = OneOfToDiscreteWrapper.STATIC_MAP[action]
+            entries.append(
+                {
+                    "index": action,
+                    "action_class": action_class.__name__,
+                    "sub_index": int(sub_index),
+                    "sub_action": int(sub_action),
+                }
+            )
+        return {
+            "n_actions": int(self.action_space.n),
+            "sub_space_sizes": [int(s.n) for s in self.sub_spaces],
+            "actions": entries,
+        }
 
     def action(self, action):
         # Map the single integer back to (choice, sub_action)
@@ -108,6 +136,71 @@ def get_gameboy_worlds_environment(id_string, run_name, render_mode=None):
     if render_mode is not None:
         env.set_render_mode(render_mode)
     return env
+
+
+def get_action_space_spec(id_string=None):
+    if OneOfToDiscreteWrapper.STATIC_SPEC is None:
+        if id_string is None:
+            raise ValueError(
+                "STATIC_SPEC not initialized yet! Please provide an id_string to initialize the environment and action mapping."
+            )
+        _ = get_gameboy_worlds_environment(id_string, run_name=None)
+    spec = dict(OneOfToDiscreteWrapper.STATIC_SPEC)
+    if id_string is not None:
+        game, environment_variant, _, controller_variant, _, _ = (
+            parse_pokeworlds_id_string(id_string)
+        )
+        spec["game"] = game
+        spec["environment_variant"] = environment_variant
+        spec["controller_variant"] = controller_variant
+    return spec
+
+
+def save_action_space(save_path, id_string=None):
+    spec = get_action_space_spec(id_string)
+    os.makedirs(save_path, exist_ok=True)
+    file_path = os.path.join(save_path, ACTION_SPACE_FILENAME)
+    with open(file_path, "w") as f:
+        json.dump(spec, f, indent=2)
+    print(f"Saved action space with {spec['n_actions']} actions to {file_path}")
+    return spec
+
+
+def load_action_space(load_path):
+    file_path = os.path.join(load_path, ACTION_SPACE_FILENAME)
+    if not os.path.exists(file_path):
+        raise ValueError(f"No action space found at {file_path}")
+    with open(file_path, "r") as f:
+        return json.load(f)
+
+
+def verify_action_space(spec, id_string=None):
+    live = get_action_space_spec(id_string)
+    for key in ("game", "controller_variant"):
+        if key in spec and key in live and spec[key] != live[key]:
+            raise ValueError(
+                f"Action space mismatch on {key}: saved model was trained on {spec[key]!r} "
+                f"but the live environment is {live[key]!r}."
+            )
+    saved = [(e["index"], e["action_class"], e["sub_index"], e["sub_action"]) for e in spec["actions"]]
+    current = [(e["index"], e["action_class"], e["sub_index"], e["sub_action"]) for e in live["actions"]]
+    if saved != current:
+        raise ValueError(
+            "Action space mismatch: the saved action indices no longer describe the live "
+            f"environment's action space. Saved {len(saved)} actions, live has {len(current)}. "
+            "A world model trained on the saved indices cannot be used with this environment."
+        )
+    return live
+
+
+def resolve_action_class(spec_entry, env):
+    name = spec_entry["action_class"]
+    for action_class in env.get_action_strings(return_all=True):
+        if action_class.__name__ == name:
+            return action_class
+    raise ValueError(
+        f"Action class {name!r} from the saved action space is not offered by this environment."
+    )
 
 
 def get_pokeworlds_n_actions(id_string=None):
